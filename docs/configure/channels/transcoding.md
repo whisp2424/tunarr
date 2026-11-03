@@ -74,7 +74,7 @@ Rules are evaluated in order. The first condition that evaluates to true selects
 
 Turn on **Enable Subtitles** for the channel to show subtitles. Embedded text tracks must also be extracted before playback. See [Subtitle Extraction](../ffmpeg/index.md#subtitle-extraction).
 
-Profiles apply when Tunarr selects tracks for transcoded content. A program or filler list profile can override a channel profile. Existing sessions may have already selected their tracks. Start a new playback session to apply changes to the current program. Passthrough streams use their existing track behavior, including legacy subtitle preferences.
+Profiles apply when Tunarr selects tracks for transcoded content. A program or filler list profile can override a channel profile. Existing sessions may have already selected their tracks. Start a new playback session to apply changes to the current program. Passthrough streams use their existing track behavior, including previously saved legacy subtitle preferences. This fork hides the legacy preference controls but preserves their values and API fields for compatibility.
 
 ## ErsatzTV next backend (experimental)
 

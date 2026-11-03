@@ -2,7 +2,6 @@ import { getApiSystemFeatureFlagsOptions } from '@/generated/@tanstack/react-que
 import { useSettings } from '@/store/settings/selectors.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
-  Collapse,
   Divider,
   FormControl,
   FormControlLabel,
@@ -36,7 +35,6 @@ import {
   CheckboxFormController,
   NumericFormControllerText,
 } from '../util/TypedController.tsx';
-import { ChannelSubtitlePreferencesTable } from './ChannelSubtitlePreferencesTable.tsx';
 import { ChannelStreamSelection } from './ChannelStreamSelection.tsx';
 
 const watermarkPositionOptions: {
@@ -103,14 +101,12 @@ export default function ChannelTranscodingConfig() {
   const [
     watermark,
     transcodeConfigId,
-    subtitlesEnabled,
     fadePeriod,
     streamMode,
     useEtvNext,
   ] = watch([
     'watermark',
     'transcodeConfigId',
-    'subtitlesEnabled',
     'watermark.fadeConfig.0.periodMins',
     'streamMode',
     'useEtvNext',
@@ -271,7 +267,7 @@ export default function ChannelTranscodingConfig() {
             </Typography>
             <Typography variant="subtitle1">
               <Trans>
-                Override global audio and subtitle settings for this channel.
+                Configure audio and subtitle selection for this channel.
               </Trans>
             </Typography>
             <Divider sx={{ my: 2 }} />
@@ -291,17 +287,6 @@ export default function ChannelTranscodingConfig() {
                 />
               }
             />
-            <Collapse in={subtitlesEnabled}>
-              <Divider sx={{ my: 2 }} />
-              <Typography>
-                <Trans>
-                  Configure subtitle preferences. Preferences are evaluated in
-                  order of priority. The first matching subtitle stream on a
-                  program will be used.
-                </Trans>
-              </Typography>
-              <ChannelSubtitlePreferencesTable />
-            </Collapse>
           </Stack>
         </Stack>
         <Box>
