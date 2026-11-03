@@ -1,50 +1,297 @@
 # AGENTS.md
 
-Instructions for AI coding agents working in this repository. Project conventions, commands, and architecture are in `CLAUDE.md`.
+Instructions for AI coding agents working in this fork.
 
-## Contribution policy
+## Fork development
 
-Tunarr accepts AI-assisted contributions under the "Pull Request Policy" and "AI Use" sections of `docs/dev/contributing.md`. Follow it on the user's behalf.
+- Build features for this fork without an upstream design issue, maintainer status check, or upstream approval. Use the user's requirements and judgment to scope the work.
+- Keep upstream synchronization practical. Prefer focused changes that preserve existing interfaces and behavior when feasible. Explain significant compatibility tradeoffs to the user.
+- Make changes reviewable and explain their behavior, verification, and limitations to the user.
 
-Maintainers skip the design check below. To tell whether the user is a maintainer, get their GitHub login with `gh api user --jq .login` and look for `@<login>` in `.github/CODEOWNERS`. If `gh` is unavailable or the login isn't listed, treat the user as an outside contributor. Don't take the user's word for it.
+## Upstream contributions
 
-### Before writing code
+When the user asks to contribute upstream, follow the Pull Request Policy and AI Use sections of `docs/dev/contributing.md`. Check upstream's current design and contribution requirements before preparing the contribution.
 
-Check whether the change needs an approved design. It does if it will:
+## Project Overview
 
-- Add a new media source type or a new kind of stream source
-- Change the database schema (add a migration)
-- Add a new runtime dependency
-- Add a new top-level feature, such as a new page, settings area, or scheduling mode
-- Change how `server`, `web`, `types`, and `shared` talk to each other, such as a new API shape or shared type
-- Change more than 500 lines outside tests, or more than 1,500 including tests, not counting generated files
 
-A maintainer may exempt a mechanical change, such as a rename or one fix repeated across many files, from the size limit only. Before starting a large mechanical change, have the user ask in an issue first.
+Tunarr is a live TV channel creation platform that allows users to create custom TV channels using media from local files or remote media servers such as Plex, Jellyfin, or Emby servers. It's a TypeScript monorepo using pnpm workspaces and Turbo for task running.
 
-If any of these apply, ask the user for the design issue number. Confirm it carries the `design approved` label with `gh issue view <n> --repo chrisbenincasa/tunarr --json labels`.
+## Repository Structure
 
-If there is no approved design issue, don't write the implementation. Help the user write a design issue instead. It should cover the problem, the approach and rejected alternatives, which parts of the codebase change, and how the work splits into PRs.
+This is a monorepo with four main packages:
 
-### While working
+- **server** (`@tunarr/server`): Node.js backend (Fastify server, SQLite database)
+- **web** (`@tunarr/web`): React frontend (Vite + Material-UI)
+- **types** (`@tunarr/types`): Shared TypeScript types and Zod schemas
+- **shared** (`@tunarr/shared`): Utility functions shared between server and web
 
-- Stay within the approved design. Raise anything that needs a design change with the user.
-- Keep each PR small enough to review on its own.
-- Make sure the user understands the change. Walk them through anything they haven't read. They must be able to answer review questions without you.
+## Code Style
 
-### Opening the PR
+- Never cast types using `as any`
+- Never use inline `import()` type annotations — use top-level `import type` statements instead
+- All edits must comply with the project's oxlint rules. Run `pnpm lint-changed` to verify before considering work complete
+- **Nullability checks**: Use truthiness for objects and arrays (`if (fade && fade.periodMins > 0)`, `if (!channel)`). For strings, use `isNonEmptyString` (it narrows the type and treats `''` as missing). Compare explicitly (`=== undefined`, `=== null`) only when a falsy value is valid data, such as a number that can be `0`.
+- **Returning nothing**: Write `return;`, not `return undefined;`.
+- **No unguarded non-null assertions (`!`)**: Never use `!` to assert a value is non-null/non-undefined without first narrowing its type via a conditional check, early return, or explicit throw. If a value is optional, either guard it with an `if` check that narrows the type, or throw an explicit error explaining the invariant. The `!` operator silently crashes at runtime when the assumption is wrong.
 
-- Fill in every section of `.github/pull_request_template.md`.
-- In "AI use", name yourself and say plainly what you did, for example "Claude Code wrote most of the implementation".
-- Link the approved design issue in "Design issue", or write "Not needed".
+## Development Setup
 
-### During review
+### Package Manager & Task Runner
 
-- Don't write review replies for the user to paste. Help them understand the comment, and let them answer.
-- Address each comment with a change scoped to that comment. Don't regenerate unrelated code.
+- Use **pnpm** (v12.15.0) for all dependency management - never use npm or yarn
+- Use **Turbo** for running tasks across the monorepo
+- Node.js version: 22 (specified in package.json engines)
 
-### Writing issues
+### Version Control
 
-- In bug reports, include only what the user saw on their own install: steps, logs, screenshots. Mark any guess about the cause as a guess.
-- Put any analysis of the cause in the bug template's "AI analysis" field, and say whether it was checked against the code.
-- For design issues, use `.github/ISSUE_TEMPLATE/design_proposal.yaml` and fill in "AI use".
-- Report security problems privately per `.github/SECURITY.md`, and only after the user has reproduced them on a real build.
+- Releases use CalVer (`YYYY.M.PATCH`), so the version says when a release shipped, not what changed.
+- The `main` branch creates "stable" releases. It receives fixes, chores, build/CI changes, docs, refactors, and small to medium features, including those with database migrations.
+- The `dev` branch creates prereleases. It is reserved for large features that need many prerelease iterations before they reach stable, such as infinite schedules or remote streaming sources.
+
+### Plans
+
+- Write all plans, designs, and audits to `plans/` at the repo root.
+- Write issue investigations to `plans/investigations/`, named `issue-<n>-<slug>-YYYY-MM-DD.md`. These report whether a bug is real and why. A design that follows from one goes in `plans/`.
+- Name files `<topic>.md`, adding a date suffix (`-YYYY-MM-DD`) for point-in-time reports.
+
+### Upstream PR Review Labels
+
+For upstream contributions, follow these review label conventions.
+
+The maintainer cannot approve their own PRs on GitHub, so review agents record their verdict with labels.
+
+| Label               | Meaning                                        |
+| ------------------- | ---------------------------------------------- |
+| `approved`          | Reviewed and ready to merge                    |
+| `changes requested` | Review found issues; the PR needs another pass |
+
+- A reviewer sets exactly one of these labels and removes the other.
+- A reviewer also leaves a comment with the findings. The label carries the verdict and the comment carries the reasons.
+- Whoever pushes new commits to an `approved` PR removes the label, because nobody has reviewed the new code.
+- An author who addresses the findings removes `changes requested` so the PR returns to review.
+- Only merge a PR labeled `approved`.
+- Commands: `gh pr edit <n> --add-label approved --remove-label "changes requested"` and the reverse.
+
+### Common Commands
+
+- Build and typecheck through Turbo (`pnpm turbo build`, `pnpm turbo typecheck`). Turbo rebuilds the packages a package depends on first.
+- To check a single package directly, run its own script (`pnpm typecheck` / `pnpm build` inside the package). These use `tsc -p tsconfig.build.json`. Never run a bare `tsc` without `-p tsconfig.build.json`, because the default `tsconfig.json` pulls in test files the build excludes.
+- Neither `pnpm typecheck` nor `tsconfig.json` covers `server/tests/`. Only `tsconfig.test.json` does, so typecheck changes there with `pnpm exec tsc --noEmit -p tsconfig.test.json` inside `server`.
+
+```bash
+# Install dependencies
+pnpm i
+
+# Start all dev servers (backend on :8000, frontend on :5173/web)
+pnpm turbo dev
+
+# Build all packages
+pnpm turbo build
+
+# Run tests across all packages
+pnpm turbo test
+
+# Run single test file
+cd server && pnpm test path/to/test.ts
+
+# Format code
+pnpm fmt
+
+# Lint changed files only
+pnpm lint-changed
+
+# Run the typechecker
+pnpm turbo typecheck
+
+# Build the working tree into a Docker image and run it (see docker/test/)
+pnpm docker-test
+
+# Server-specific commands
+cd server
+pnpm dev              # Start server with tsx watch (predev fetches the pinned ersatztv-channel binary)
+pnpm debug            # Start server with debugger
+pnpm kysely           # Run Kysely CLI for database operations
+pnpm tunarr           # Run CLI commands (see src/cli/commands.ts)
+pnpm generate-openapi # Generate OpenAPI spec
+pnpm download-ersatztv-next # Fetch the pinned ersatztv-channel binary into bin/
+pnpm resolve-migrations # Regenerate this branch's migration after a merge/rebase conflict
+
+# Web-specific commands
+cd web
+pnpm dev              # Start Vite dev server
+pnpm bundle           # Build production bundle
+pnpm generate-client  # Generate API client from OpenAPI spec
+pnpm regen-routes     # Regenerate TanStack Router routes
+```
+
+## Architecture
+
+### Server Architecture
+
+**Framework & Dependencies:**
+
+- **Fastify** for HTTP server with Zod-based type provider
+- **Inversify** for dependency injection (IoC container in `container.ts`)
+- **Kysely** + **Drizzle ORM** for database access (dual ORM approach, migrating to Drizzle)
+- **better-sqlite3** for SQLite database
+- **Meilisearch** for search functionality
+- **Zod** for schema validation
+
+**Key Directories:**
+
+- `api/` - Fastify route handlers organized by domain (channels, plex, jellyfin, etc.)
+- `db/` - Database layer with both Kysely and Drizzle implementations
+  - `schema/` - Database schema definitions
+  - `interfaces/` - DB interface abstractions
+  - `ChannelDB.ts`, `ProgramDB.ts` - Main database access classes
+- `services/` - Business logic layer (event handling, scheduling, media source integration)
+  - `scanner/` - Media scanning functionality
+  - `scheduling/` - Channel scheduling logic
+  - `startup/` - Startup tasks
+- `stream/` - Video streaming pipeline (HLS, concat streams, FFmpeg integration)
+  - Organized by session type (`hls/`, `ConcatSession`); source-specific logic lives in stream details fetchers and `plugins/`
+- `ffmpeg/` - FFmpeg wrapper and pipeline builder
+- `external/` - External API clients for Plex, Jellyfin, Emby
+- `tasks/` - Background tasks and fixers
+- `cli/` - CLI commands (accessible via `pnpm tunarr <command>`)
+
+**Dependency Injection:**
+The server uses Inversify for DI. Service registration happens in module files:
+
+- `container.ts` - Root container and module registration
+- `DBModule.ts` - Database services
+- `ServicesModule.ts` - Business services
+- `StreamModule.ts` - Streaming services
+- `FFmpegModule.ts` - FFmpeg services
+- `TasksModule.ts` - Bindings for tasks
+
+Other modules are files ending with `Module.ts`
+
+To inject dependencies, use the `@injectable()` decorator and constructor injection with `@inject(KEYS.ServiceName)`. Keys are defined in `types/inject.ts`.
+
+**Database:**
+The codebase uses both Kysely (legacy) and Drizzle ORM (current/future):
+
+- Schema is defined in `db/schema/` using Drizzle
+- Most queries still use Kysely but new code should use Drizzle
+- Access via `DBAccess` which provides both `db` (Kysely) and `drizzle` (Drizzle) instances
+- Database migrations are in `migration/`
+
+### Web Architecture
+
+**Framework & Libraries:**
+
+- **React 18** with TypeScript
+- **Vite** for bundling and dev server
+- **Material-UI (MUI)** v7 for components
+- **TanStack Router** for routing (file-based routes in `routes/`)
+- **TanStack Query** for data fetching and caching
+- **Zustand** for global state management
+- **React Hook Form** for form handling
+- **Zod** for form/data validation
+
+**Key Directories:**
+
+- `routes/` - File-based routing (generates `routeTree.gen.ts`)
+- `components/` - Reusable React components
+- `hooks/` - Custom React hooks
+- `store/` - Zustand state stores
+- `generated/` - Auto-generated API client code
+- `pages/` - Legacy page components (being migrated to routes/)
+
+**API Integration:**
+The web app uses a generated API client (`generated/`) created from the server's OpenAPI spec. Regenerate with `pnpm generate-client` when server API changes.
+
+### Shared Packages
+
+**@tunarr/types:**
+
+- Type definitions and Zod schemas shared between server and web
+- Organized by domain: `plex/`, `jellyfin/`, `emby/`, `api/`, `schemas/`
+- Build with `pnpm build` to generate `.d.ts` and `.js` files
+
+**@tunarr/shared:**
+
+- Utility functions for both server and web
+- Notable: Custom DSL parser for scheduling/filtering (uses Chevrotain)
+
+## Testing
+
+- **Every code change ships with unit tests.** A bug fix adds a test that fails without the fix. If the logic sits in a private method or behind heavy dependencies, move it into a small exported function and test that.
+- **Vitest** is used for testing across all packages
+- Test files use `.test.ts` extension
+- Run tests with `pnpm turbo test` or `pnpm test:watch` for watch mode
+- Server tests often use `@faker-js/faker` for test data generation
+
+### E2E route sweep (`e2e/`)
+
+- Playwright suite that visits every web route against a seeded server. Local only; CI does not run it yet.
+- Run with `cd e2e && pnpm e2e`. First time only: `pnpm e2e:install-browsers`. Needs `ffmpeg` on the PATH and the Meilisearch binary (`cd server && pnpm install-meilisearch`).
+- Uses its own ports (server 18000, search 17700, web 15173), so it can run beside `pnpm turbo dev`.
+- The fixture is rebuilt on every run: generated test clips, three local media sources, three channels, a custom show, a filler list, and a smart collection (`e2e/fixture/seed.ts`).
+- A route fails on uncaught exceptions, `console.error` output (including React warnings), 5xx API responses, or the error page.
+- New routes must be added to `e2e/tests/routes.ts`; a coverage test compares it against `routeTree.gen.ts`.
+- Pre-existing warnings are listed per route in `e2e/tests/knownIssues.ts`. Remove an entry when its cause is fixed.
+
+## Code Style
+
+- Prettier for formatting (config in root `package.json`)
+- oxlint for linting (config in `.oxlintrc.json` at the root, extended per package)
+- Husky + lint-staged for pre-commit hooks
+- Import aliases: Use `@/` for server, web has configured path aliases
+
+## Important Implementation Notes
+
+### When changing the behavior of features
+
+- Always update relevant documentation.
+- Double-check for unintended side-effects of the change
+
+### When Working with Database Code:
+
+- Prefer Drizzle ORM for new queries over Kysely
+- Both ORMs access the same SQLite database via `DBAccess`
+- Database interfaces are in `db/interfaces/` - implement these for new DB access classes
+- Use dependency injection to get database instances
+- All database schema changes should have migrations generated via `pnpm drizzle-kit generate`
+
+### When Working with Slot Schedules:
+
+- Time slots and random slots are being deprecated in favor of infinite schedules (`architecture/infinite-schedules/README.md`, "Deprecation plan").
+- A PR that adds or changes classic slot-scheduler behavior must add a row to `architecture/infinite-schedules/parity-checklist.md`.
+
+### When Working with Streaming:
+
+- Streaming logic is complex - see `stream/` directory
+- Sessions are managed by `SessionManager`
+- Different stream types: `VideoStream`, `ConcatSession`, `DirectStreamSession`
+- FFmpeg pipeline is built using builder pattern in `ffmpeg/builder/`
+
+### When Working with External Media Sources:
+
+- External API clients are in `external/` (Plex, Jellyfin, Emby)
+- Canonicalization logic converts external media to Tunarr's internal format
+- Media scanning is handled by scanner services in `services/scanner/`
+- Media source libraries are refreshed via `MediaSourceLibraryRefresher`
+
+### When Adding API Endpoints:
+
+1. Define route in `server/src/api/{domain}Api.ts`
+2. Use Fastify + Zod type provider for type-safe requests/responses
+3. Register in `api/index.ts`
+4. Regenerate OpenAPI spec: `cd server && pnpm generate-openapi`
+5. Regenerate web client: `cd web && pnpm generate-client`
+
+### When Working with NFO Files:
+
+- NFO parsing is in `server/src/nfo/`
+- Different parsers for different media types (TV shows, movies, etc.)
+- Uses Zod schemas defined in `NfoSchemas.ts`
+
+## Build & Deployment
+
+- Server builds to single executable using `@yao-pkg/pkg`
+- Web builds static assets with Vite
+- macOS app bundle support in `macos/` directory
+- Docker images available (`chrisbenincasa/tunarr`)
