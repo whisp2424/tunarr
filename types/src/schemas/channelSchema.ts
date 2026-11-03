@@ -208,6 +208,7 @@ export const ChannelSchema = z.object({
   transcodeConfigId: z.uuid(),
   sessions: z.array(ChannelSessionSchema).optional(),
   subtitlesEnabled: z.boolean(),
+  streamSelectionProfileId: z.uuid().nullable().optional(),
 
   /**
    * Routes this channel to the ErsatzTV next backend while the global feature

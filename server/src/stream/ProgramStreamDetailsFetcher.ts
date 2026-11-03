@@ -131,18 +131,22 @@ export class ProgramStreamDetailsFetcher {
     // row on program_subtitles, which does have a path, and those are handled
     // below.
     const subtitleStreamDetails: SubtitleStreamDetails[] =
-      streamsByType['subtitles']?.map(
-        (subtitle) =>
-          ({
-            codec: subtitle.codec,
-            default: subtitle.default,
-            forced: subtitle.forced,
-            sdh: false, // TODO:
-            type: 'embedded',
-            index: subtitle.index,
-            languageCodeISO6392: nullToUndefined(subtitle.language),
-          }) satisfies SubtitleStreamDetails,
-      ) ?? [];
+      streamsByType['subtitles']?.map((subtitle) => {
+        const metadata = program.subtitles?.find(
+          (stored) =>
+            stored.subtitleType === 'embedded' &&
+            stored.streamIndex === subtitle.index,
+        );
+        return {
+          codec: subtitle.codec,
+          default: metadata?.default ?? subtitle.default,
+          forced: metadata?.forced ?? subtitle.forced,
+          sdh: metadata?.sdh ?? false,
+          type: 'embedded',
+          index: subtitle.index,
+          languageCodeISO6392: nullToUndefined(subtitle.language),
+        } satisfies SubtitleStreamDetails;
+      }) ?? [];
 
     const usableSubtitles = await Promise.all(
       (program.subtitles ?? []).map(async (subtitle) => {

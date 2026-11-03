@@ -37,6 +37,7 @@ import {
   NumericFormControllerText,
 } from '../util/TypedController.tsx';
 import { ChannelSubtitlePreferencesTable } from './ChannelSubtitlePreferencesTable.tsx';
+import { ChannelStreamSelection } from './ChannelStreamSelection.tsx';
 
 const watermarkPositionOptions: {
   value: Watermark['position'];
@@ -274,6 +275,7 @@ export default function ChannelTranscodingConfig() {
               </Trans>
             </Typography>
             <Divider sx={{ my: 2 }} />
+            <ChannelStreamSelection />
             <FormControlLabel
               label={t`Enable Subtitles`}
               sx={{

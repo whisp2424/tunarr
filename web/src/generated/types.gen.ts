@@ -3010,6 +3010,7 @@ export type GetChannelsResponses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
+        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3078,6 +3079,7 @@ export type CreateChannelV2Data = {
             streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
             transcodeConfigId: string;
             subtitlesEnabled: boolean;
+            streamSelectionProfileId?: string | null;
             useEtvNext?: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3218,6 +3220,7 @@ export type CreateChannelV2Responses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
+        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3379,6 +3382,7 @@ export type GetChannelsByNumberV2Responses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
+        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3445,6 +3449,7 @@ export type PutApiChannelsByIdData = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         subtitlesEnabled: boolean;
+        streamSelectionProfileId?: string | null;
         useEtvNext?: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3587,6 +3592,7 @@ export type PutApiChannelsByIdResponses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
+        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -6599,6 +6605,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                         }>;
                     }>;
                     subtitlesEnabled: boolean;
+                    streamSelectionProfileId?: string | null;
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -6965,6 +6972,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                         }>;
                     }>;
                     subtitlesEnabled: boolean;
+                    streamSelectionProfileId?: string | null;
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -12597,7 +12605,8 @@ export type GetApiStreamSelectionProfilesResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any';
+                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
+                filterOrder?: Array<'forced' | 'default'>;
                 allowImageBased: boolean;
                 allowExternal: boolean;
             } | {
@@ -12633,7 +12642,8 @@ export type PostApiStreamSelectionProfilesData = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType?: 'none' | 'forced' | 'default' | 'any';
+                filterType?: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
+                filterOrder?: Array<'forced' | 'default'>;
                 allowImageBased?: boolean;
                 allowExternal?: boolean;
             } | {
@@ -12671,7 +12681,8 @@ export type PostApiStreamSelectionProfilesResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any';
+                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
+                filterOrder?: Array<'forced' | 'default'>;
                 allowImageBased: boolean;
                 allowExternal: boolean;
             } | {
@@ -12747,7 +12758,8 @@ export type GetApiStreamSelectionProfilesByIdResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any';
+                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
+                filterOrder?: Array<'forced' | 'default'>;
                 allowImageBased: boolean;
                 allowExternal: boolean;
             } | {
@@ -12780,7 +12792,8 @@ export type PutApiStreamSelectionProfilesByIdData = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType?: 'none' | 'forced' | 'default' | 'any';
+                filterType?: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
+                filterOrder?: Array<'forced' | 'default'>;
                 allowImageBased?: boolean;
                 allowExternal?: boolean;
             } | {
@@ -12827,7 +12840,8 @@ export type PutApiStreamSelectionProfilesByIdResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any';
+                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
+                filterOrder?: Array<'forced' | 'default'>;
                 allowImageBased: boolean;
                 allowExternal: boolean;
             } | {
@@ -13094,6 +13108,7 @@ export type PostApiTroubleshootResponses = {
                 }>;
             }>;
             subtitlesEnabled: boolean;
+            streamSelectionProfileId?: string | null;
             useEtvNext: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;

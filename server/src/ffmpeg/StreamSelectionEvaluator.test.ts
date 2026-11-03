@@ -997,6 +997,93 @@ describe('evaluateStreamSelectionProfile', () => {
       expect(result.subtitleStream!.default).toBe(true);
     });
 
+    it.each([
+      { forced: true, defaultFlag: false, expected: null },
+      { forced: false, defaultFlag: false, expected: 2 },
+      { forced: false, defaultFlag: true, expected: 2 },
+      { forced: true, defaultFlag: true, expected: null },
+    ])(
+      'selects non-forced subtitles regardless of the default flag',
+      async ({ forced, defaultFlag, expected }) => {
+        const profile = makeProfile([
+          makeRule({
+            subtitleAction: {
+              type: 'by_language',
+              languages: ['eng'],
+              filterType: 'not_forced',
+              allowImageBased: true,
+              allowExternal: true,
+            },
+          }),
+        ]);
+        const result = await evaluateStreamSelectionProfile(
+          profile,
+          audioStreams,
+          [makeSubtitleStream({ index: 2, forced, default: defaultFlag })],
+          makeCelService(true),
+          celContext,
+          lineupItem,
+        );
+        expect(result.subtitleStream?.index ?? null).toBe(expected);
+      },
+    );
+
+    it.each([
+      {
+        order: ['forced', 'default'] as const,
+        forced: true,
+        defaultFlag: true,
+        expected: 3,
+      },
+      {
+        order: ['default', 'forced'] as const,
+        forced: true,
+        defaultFlag: true,
+        expected: 2,
+      },
+      {
+        order: ['forced', 'default'] as const,
+        forced: false,
+        defaultFlag: true,
+        expected: 2,
+      },
+      {
+        order: ['forced', 'default'] as const,
+        forced: false,
+        defaultFlag: false,
+        expected: null,
+      },
+    ])(
+      'tries subtitle filters in priority order: $order',
+      async ({ order, forced, defaultFlag, expected }) => {
+        const profile = makeProfile([
+          makeRule({
+            subtitleAction: {
+              type: 'by_language',
+              languages: ['eng'],
+              filterType: order[0],
+              filterOrder: [...order],
+              allowImageBased: true,
+              allowExternal: true,
+            },
+          }),
+        ]);
+        const subs = [
+          makeSubtitleStream({ index: 2, default: defaultFlag }),
+          makeSubtitleStream({ index: 3, forced }),
+        ];
+        const result = await evaluateStreamSelectionProfile(
+          profile,
+          audioStreams,
+          subs,
+          makeCelService(true),
+          celContext,
+          lineupItem,
+        );
+        expect(result.subtitleStream?.index ?? null).toBe(expected);
+      },
+    );
+
     it('rejects external subtitles when allowExternal is false', async () => {
       const subs: SubtitleStreamDetails[] = [
         makeSubtitleStream({

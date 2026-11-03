@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { LanguageService } from '@/services/LanguageService.js';
+import type { TerminalProgram } from '@tunarr/types';
+import { ProgramDaoMinter } from './ProgramMinter.ts';
+
+describe('ProgramDaoMinter.mintVersions', () => {
+  it('preserves forced subtitle flags in newly scanned streams', () => {
+    const program = {
+      type: 'movie',
+      mediaItem: {
+        resolution: { widthPx: 1920, heightPx: 1080 },
+        duration: 1000,
+        locations: [],
+        streams: [
+          { streamType: 'subtitles', index: 3, codec: 'ass', forced: true },
+          { streamType: 'subtitles', index: 4, codec: 'ass', forced: false },
+        ],
+      },
+    } as unknown as TerminalProgram;
+
+    const versions = new ProgramDaoMinter().mintVersions('program', program);
+
+    expect(versions[0]?.mediaStreams?.map((stream) => stream.forced)).toEqual([
+      true,
+      false,
+    ]);
+  });
+});
 
 // The ISO 639-2 /B→/T normalization that keeps stored language codes in one
 // canonical set. Regression coverage for #2044: a provider's bibliographic

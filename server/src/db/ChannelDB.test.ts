@@ -18,6 +18,7 @@ import type { IChannelDB } from './interfaces/IChannelDB.ts';
 import { ChannelPrograms } from './schema/ChannelPrograms.ts';
 import { FillerShow } from './schema/FillerShow.ts';
 import { Program } from './schema/Program.ts';
+import { StreamSelectionProfile } from './schema/StreamSelectionProfile.ts';
 import { IProgramDB } from './interfaces/IProgramDB.ts';
 import { BasicChannelRepository } from './channel/BasicChannelRepository.ts';
 import { ChannelProgramRepository } from './channel/ChannelProgramRepository.ts';
@@ -243,6 +244,43 @@ describe('ChannelDB', () => {
       expect(updated.channel.uuid).toBe(created.channel.uuid);
       expect(updated.channel.name).toBe('Updated Name');
       expect(updated.channel.number).toBe(201);
+    });
+
+    test('saves, preserves, and clears a channel track profile', async ({
+      channelDb,
+      drizzle,
+      defaultTranscodeConfigId,
+    }) => {
+      const profileId = v4();
+      await drizzle.insert(StreamSelectionProfile).values({
+        uuid: profileId,
+        name: 'Japanese audio',
+        rules: [
+          {
+            condition: 'true',
+            audioAction: { type: 'by_language', languages: ['jpn'] },
+            subtitleAction: { type: 'disable' },
+          },
+        ],
+      });
+      const data = createSaveableChannel(defaultTranscodeConfigId);
+      const created = await channelDb.saveChannel({
+        ...data,
+        streamSelectionProfileId: profileId,
+      });
+      expect(created.channel.streamSelectionProfileId).toBe(profileId);
+
+      const preserved = await channelDb.updateChannel(
+        created.channel.uuid,
+        data,
+      );
+      expect(preserved.channel.streamSelectionProfileId).toBe(profileId);
+
+      const cleared = await channelDb.updateChannel(created.channel.uuid, {
+        ...data,
+        streamSelectionProfileId: null,
+      });
+      expect(cleared.channel.streamSelectionProfileId).toBeNull();
     });
 
     test('should delete a channel', async ({

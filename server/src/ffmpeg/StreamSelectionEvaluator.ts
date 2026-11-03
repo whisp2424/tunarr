@@ -234,55 +234,60 @@ async function resolveSubtitleAction(
 
     case 'by_language': {
       if (
-        action.filterType === 'none' ||
+        (!action.filterOrder && action.filterType === 'none') ||
         !subtitleStreams ||
         subtitleStreams.length === 0
       ) {
         return null;
       }
 
-      for (const lang of action.languages) {
-        for (const stream of subtitleStreams) {
-          // Language match
-          if (!streamMatchesLanguage(stream, lang)) {
-            continue;
-          }
-
-          // Filter type check
-          if (action.filterType === 'forced' && !stream.forced) {
-            continue;
-          }
-          if (action.filterType === 'default' && !stream.default) {
-            continue;
-          }
-
-          // External check
-          if (!action.allowExternal && stream.type === 'external') {
-            continue;
-          }
-
-          // Image-based check
-          if (!action.allowImageBased && isImageBasedSubtitle(stream.codec)) {
-            continue;
-          }
-
-          // For embedded text-based subs, verify extraction
-          if (
-            !isImageBasedSubtitle(stream.codec) &&
-            stream.type === 'embedded'
-          ) {
-            const extracted =
-              await SubtitleStreamPicker.getSubtitleDetailsWithExtractedPath(
-                lineupItem,
-                stream,
-              );
-            if (extracted) {
-              return extracted;
+      for (const filter of action.filterOrder ?? [action.filterType]) {
+        for (const lang of action.languages) {
+          for (const stream of subtitleStreams) {
+            // Language match
+            if (!streamMatchesLanguage(stream, lang)) {
+              continue;
             }
-            continue;
-          }
 
-          return stream;
+            // Filter type check
+            if (filter === 'forced' && !stream.forced) {
+              continue;
+            }
+            if (filter === 'not_forced' && stream.forced) {
+              continue;
+            }
+            if (filter === 'default' && !stream.default) {
+              continue;
+            }
+
+            // External check
+            if (!action.allowExternal && stream.type === 'external') {
+              continue;
+            }
+
+            // Image-based check
+            if (!action.allowImageBased && isImageBasedSubtitle(stream.codec)) {
+              continue;
+            }
+
+            // For embedded text-based subs, verify extraction
+            if (
+              !isImageBasedSubtitle(stream.codec) &&
+              stream.type === 'embedded'
+            ) {
+              const extracted =
+                await SubtitleStreamPicker.getSubtitleDetailsWithExtractedPath(
+                  lineupItem,
+                  stream,
+                );
+              if (extracted) {
+                return extracted;
+              }
+              continue;
+            }
+
+            return stream;
+          }
         }
       }
 

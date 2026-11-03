@@ -66,6 +66,16 @@ It consists of two FFMPEG processes, one which performs the per-program transcod
 
 If this mode was "good enough" we probably wouldn't have spent time implementing the other modes! There are a lot of potential issues with this mode; too many to list here.
 
+## Track selection profiles
+
+In the channel's **Streaming** settings, select a track selection profile to control audio and subtitle selection. Create or edit profiles there, then save the channel to assign the selected profile. Profiles can be shared. Saving an edit changes the profile for every channel that uses it.
+
+Rules are evaluated in order. The first condition that evaluates to true selects the audio and subtitle actions. Use `true` to match every program. Language lists accept codes such as `jpn` and `eng`, in preference order. The **Any except forced** subtitle filter accepts tracks without the forced flag, including tracks without the default flag.
+
+Turn on **Enable Subtitles** for the channel to show subtitles. Embedded text tracks must also be extracted before playback. See [Subtitle Extraction](../ffmpeg/index.md#subtitle-extraction).
+
+Profiles apply when Tunarr selects tracks for transcoded content. A program or filler list profile can override a channel profile. Existing sessions may have already selected their tracks. Start a new playback session to apply changes to the current program. Passthrough streams use their existing track behavior, including legacy subtitle preferences.
+
 ## ErsatzTV next backend (experimental)
 
 The modes above all run Tunarr's own FFmpeg pipeline. Tunarr can instead hand a channel to `ersatztv-channel`, a standalone worker from the [ErsatzTV next](https://ersatztv.org/) project that does the scheduling, transcoding and segmenting itself.

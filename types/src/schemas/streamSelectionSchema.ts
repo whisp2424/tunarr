@@ -33,7 +33,15 @@ export const SubtitleActionDisableSchema = z.object({
 export const SubtitleActionByLanguageSchema = z.object({
   type: z.literal('by_language'),
   languages: z.array(z.string()).min(1),
-  filterType: SubtitleFilterSchema.default('any'),
+  filterType: z
+    .enum([...SubtitleFilterSchema.options, 'not_forced'])
+    .default('any'),
+  filterOrder: z
+    .array(z.enum(['forced', 'default']))
+    .min(1)
+    .max(2)
+    .refine((filters) => new Set(filters).size === filters.length)
+    .optional(),
   allowImageBased: z.boolean().default(true),
   allowExternal: z.boolean().default(true),
 });

@@ -14,6 +14,7 @@ import type {
   StreamSelectionCelContext,
 } from '../services/CelEvaluationService.ts';
 import type { ArtworkService } from '../services/ArtworkService.ts';
+import { getSubtitleCacheFilePath } from '../util/subtitles.ts';
 import { ProgramStreamDetailsFetcher } from './ProgramStreamDetailsFetcher.ts';
 import type { AudioStreamDetails, SubtitleStreamDetails } from './types.ts';
 
@@ -573,5 +574,63 @@ describe('external subtitles end-to-end (fetcher -> stream selector)', () => {
     expect(details.subtitleDetails).toHaveLength(1);
     expect(details.subtitleDetails?.[0]?.type).toBe('embedded');
     expect(details.subtitleDetails?.[0]?.index).toBe(2);
+  });
+
+  it('uses the stored subtitle flags to exclude a forced track from selection', async () => {
+    const program = makeProgram(
+      [
+        { streamKind: 'video', index: 0, codec: 'h264' },
+        { streamKind: 'audio', index: 1, codec: 'aac', language: 'jpn' },
+        { streamKind: 'subtitles', index: 3, codec: 'ass', language: 'eng' },
+        { streamKind: 'subtitles', index: 4, codec: 'ass', language: 'eng' },
+      ],
+      [
+        {
+          subtitleType: 'embedded',
+          streamIndex: 3,
+          codec: 'ass',
+          language: 'eng',
+          forced: true,
+        },
+        {
+          subtitleType: 'embedded',
+          streamIndex: 4,
+          codec: 'ass',
+          language: 'eng',
+          forced: false,
+        },
+      ],
+    );
+    mockFileExists.mockResolvedValue(true);
+    const details = await detailsFor(program);
+    expect(
+      details.subtitleDetails?.map((stream) => [stream.index, stream.forced]),
+    ).toEqual([
+      [3, true],
+      [4, false],
+    ]);
+    const result = await select(
+      details.subtitleDetails ?? [],
+      {
+        type: 'by_language',
+        languages: ['eng'],
+        filterType: 'not_forced',
+        allowImageBased: true,
+        allowExternal: true,
+      },
+      makeLineupItem(program),
+    );
+    expect(result.subtitleStream?.forced).toBe(false);
+    expect(result.subtitleStream?.path).toBe(
+      `/tmp/test-tunarr/cache/subtitles/${getSubtitleCacheFilePath(
+        {
+          id: program.uuid,
+          externalKey: 'jf-item-1',
+          externalSourceId: program.mediaSourceId,
+          externalSourceType: 'jellyfin',
+        },
+        { streamIndex: 4, codec: 'ass' },
+      )}`,
+    );
   });
 });
