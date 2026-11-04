@@ -18,21 +18,25 @@ export class SubtitleFilter extends FilterOption {
     // FFmpeg parses the subtitle option, then parses the containing filtergraph.
     // Escape both layers in order. The filtergraph is passed directly to ffmpeg,
     // so there is no shell-escaping layer.
-    let path = this.subtitleInputSource.path
-      .replaceAll('\\', '\\\\')
-      .replaceAll("'", "\\'")
-      .replaceAll(':', '\\:')
-      .replaceAll('=', '\\=');
+    const escape = (value: string) => {
+      let path = value
+        .replaceAll('\\', '\\\\')
+        .replaceAll("'", "\\'")
+        .replaceAll(':', '\\:')
+        .replaceAll('=', '\\=');
 
-    path = path
-      .replaceAll('\\', '\\\\')
-      .replaceAll("'", "\\'")
-      .replaceAll('[', '\\[')
-      .replaceAll(']', '\\]')
-      .replaceAll(',', '\\,')
-      .replaceAll(';', '\\;');
+      path = path
+        .replaceAll('\\', '\\\\')
+        .replaceAll("'", "\\'")
+        .replaceAll('[', '\\[')
+        .replaceAll(']', '\\]')
+        .replaceAll(',', '\\,')
+        .replaceAll(';', '\\;');
 
-    return `subtitles=${path}`;
+      return path;
+    };
+    const fonts = this.subtitleInputSource.fontsDirectory;
+    return `subtitles=${escape(this.subtitleInputSource.path)}${fonts ? `:fontsdir=${escape(fonts)}` : ''}`;
   }
 
   nextState(currentState: FrameState): FrameState {

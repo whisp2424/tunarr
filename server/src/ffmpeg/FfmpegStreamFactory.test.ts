@@ -32,6 +32,11 @@ import {
   SubtitleMethods,
 } from '@/ffmpeg/builder/MediaStream.ts';
 import { InfiniteLoopInputOption } from '@/ffmpeg/builder/options/input/InfiniteLoopInputOption.ts';
+import { setGlobalOptionsUnchecked } from '@/globals.ts';
+import { getSubtitleFontsCachePath } from '@/util/subtitles.ts';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import { describe, expect, test, vi } from 'vitest';
@@ -170,6 +175,8 @@ function makeLineupItem(): ContentBackedStreamLineupItem {
     program: {
       uuid: 'program-uuid',
       mediaSourceId: 'source-id',
+      externalKey: 'source-item',
+      sourceType: 'plex',
       externalIds: [],
     },
   } as ContentBackedStreamLineupItem;
@@ -1080,6 +1087,63 @@ describe('FfmpegStreamFactory', () => {
         expect(subtitleInput).not.toBeNull();
         expect(subtitleInput!.method).toBe(SubtitleMethods.Burn);
         expect(result!.renditions.subtitle).toBeUndefined();
+      });
+
+      test('uses the program font cache for ASS burn-in', async () => {
+        const lineupItem = makeLineupItem();
+        const temp = await fs.mkdtemp(
+          path.join(os.tmpdir(), 'tunarr-font-factory-'),
+        );
+        setGlobalOptionsUnchecked({
+          database: temp,
+          log_level: 'error',
+          verbose: 0,
+        });
+        const fonts = path.join(
+          temp,
+          'cache',
+          'subtitle-fonts',
+          getSubtitleFontsCachePath({
+            id: lineupItem.program.uuid,
+            externalKey: lineupItem.program.externalKey,
+            externalSourceId: lineupItem.program.mediaSourceId,
+            externalSourceType: lineupItem.program.sourceType,
+          }),
+        );
+        await fs.mkdir(fonts, { recursive: true });
+        try {
+          const capturing = createCapturingPipelineBuilderFactory();
+          const sut = new FfmpegStreamFactory(
+            makeMockFfmpegInfo(),
+            makeMockSettingsDB(makeFfmpegSettings()),
+            capturing.factory,
+            makeMockChannelDB(),
+            makeMockFeatureFlagService({ webvttSidecarEnabled: false }),
+            makeMockStreamSelector({ ...textSubtitleStream, codec: 'ass' }),
+            makeTranscodeConfig(),
+            makeChannel({ subtitlesEnabled: true }),
+          );
+          await sut.createStreamSession({
+            stream: {
+              source: new HttpStreamSource('http://example.com/video.ts'),
+              details: makeStreamDetails(),
+            },
+            options: {
+              startTime: dayjs.duration(0),
+              duration: dayjs.duration({ seconds: 30 }),
+              outputFormat: { type: 'mpegts' as const },
+              ptsOffset: 0,
+              realtime: true,
+              streamMode: 'hls',
+            },
+            lineupItem,
+          });
+          expect(capturing.getCapturedSubtitleInput()?.fontsDirectory).toBe(
+            fonts,
+          );
+        } finally {
+          await fs.rm(temp, { recursive: true, force: true });
+        }
       });
 
       test('falls back to burn-in for image-based subtitles even when sidecar enabled', async () => {

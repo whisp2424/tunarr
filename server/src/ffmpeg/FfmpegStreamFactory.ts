@@ -30,15 +30,23 @@ import dayjs from 'dayjs';
 import type { Duration } from 'dayjs/plugin/duration.js';
 import { injectable } from 'inversify';
 import { isUndefined } from 'lodash-es';
+import path from 'node:path';
 import type { DeepReadonly } from 'ts-essentials';
 import { match, P } from 'ts-pattern';
 import type { ContentBackedStreamLineupItem } from '../db/derived_types/StreamLineup.ts';
 import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
+import { globalOptions } from '../globals.ts';
 import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 import { isImageBasedSubtitle } from '../stream/util.ts';
 import { KEYS } from '../types/inject.ts';
 import { assisted, injected } from '../util/assistedInject.ts';
+import {
+  CacheFolderName,
+  SubtitleFontsCacheFolderName,
+} from '../util/constants.ts';
+import { fileExists } from '../util/fsUtil.ts';
 import { InjectLogger } from '../util/inject.ts';
+import { getSubtitleFontsCachePath } from '../util/subtitles.ts';
 import { loggingDef } from '../util/logging/loggingDef.ts';
 import type { FfmpegPlaybackParams } from './FfmpegPlaybackParamsCalculator.ts';
 import { FfmpegPlaybackParamsCalculator } from './FfmpegPlaybackParamsCalculator.ts';
@@ -574,7 +582,29 @@ export class FfmpegStreamFactory {
             );
 
         if (stream) {
-          subtitleSource = new SubtitlesInputSource(source, [stream], method);
+          let fontsDirectory: string | undefined;
+          if (!useSidecar && subtitleStream.codec.toLowerCase() === 'ass') {
+            const candidate = path.join(
+              globalOptions().databaseDirectory,
+              CacheFolderName,
+              SubtitleFontsCacheFolderName,
+              getSubtitleFontsCachePath({
+                id: lineupItem.program.uuid,
+                externalKey: lineupItem.program.externalKey,
+                externalSourceId: lineupItem.program.mediaSourceId,
+                externalSourceType: lineupItem.program.sourceType,
+              }),
+            );
+            if (await fileExists(candidate)) {
+              fontsDirectory = candidate;
+            }
+          }
+          subtitleSource = new SubtitlesInputSource(
+            source,
+            [stream],
+            method,
+            fontsDirectory,
+          );
 
           if (useSidecar) {
             subtitleRendition = {

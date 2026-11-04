@@ -47,6 +47,10 @@ Then, in Tunarr, you would set your transcode path to `/transcode`.
 
 If content in your channels have embedded, text-based subtitles, this option enables Tunarr to extract subtitles from media files in order to subsequently burn the subtitles. Extract embedded text-based subtitles is currently a requirement for using said subtitle streams. Each hour Tunarr will scan the guide for upcoming media, find which items have embedded text-based subtitles, and then run extraction. This can be a resource-intensive process, so in general, sidecar text-based subtitles are preferable.
 
+For ASS subtitles, the same pass caches fonts attached to the source video and supplies them to FFmpeg when burning subtitles. It also checks programs whose subtitles were extracted before this feature was installed. Font extraction needs the original source to be reachable, and the media server must expose its attachments in the stream Tunarr reads. Failed extraction is retried on a later pass; playback can use substitute fonts until it succeeds. Start a new playback session after the fonts have been cached.
+
+This applies to Tunarr's standard burn-in pipeline when subtitle extraction is enabled. Fonts not attached to the source must be installed where FFmpeg can find them. WebVTT sidecars cannot reproduce all ASS styling, and the ErsatzTV next backend has its own subtitle handling. Font caches are stored under `cache/subtitle-fonts`; deleting that folder causes scheduled programs to be checked again.
+
 ### Sidecar Subtitles
 
 Tunarr supports sidecar subtitle files (`.srt`, `.vtt`, etc.) placed alongside your media files. When scanning local libraries, Tunarr automatically discovers external subtitle files and associates them with the corresponding media.

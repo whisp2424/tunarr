@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaSourceId } from '../db/schema/base.ts';
+import { Result } from '../types/result.ts';
 import { SubtitleExtractorTask } from './SubtitleExtractorTask.ts';
 
 vi.mock('@/util/logging/LoggerFactory.js', () => {
@@ -29,6 +30,12 @@ vi.mock('../services/TvGuideService.ts', () => ({
 
 // Used by PathCalculator (shared-storage lookups) and by the task's own
 // check for whether an already-recorded subtitle file is still there.
+const mockCacheSubtitleFonts = vi.fn(async (_options: unknown) => {});
+vi.mock('./SubtitleFontCache.ts', () => ({
+  cacheSubtitleFonts: (...args: Parameters<typeof mockCacheSubtitleFonts>) =>
+    mockCacheSubtitleFonts(...args),
+}));
+
 const mockFileExists = vi.fn<(p: string) => Promise<boolean>>();
 vi.mock('../util/fsUtil.ts', () => ({
   fileExists: (p: string) => mockFileExists(p),
@@ -79,6 +86,7 @@ function makeHarness(opts: {
   subtitlesEnabled?: boolean;
   enableSubtitleExtraction?: boolean;
   downloadedPath?: string;
+  existingAss?: boolean;
 }) {
   const sourceType = opts.sourceType ?? 'jellyfin';
 
@@ -166,7 +174,19 @@ function makeHarness(opts: {
         ]),
     } as never,
     {
-      getStream: () => Promise.reject(new Error('should not be called')),
+      getStream: () =>
+        opts.existingAss
+          ? Promise.resolve(
+              Result.success({
+                streamSource: { type: 'file', path: '/media/video.mkv' },
+                streamDetails: {
+                  subtitleDetails: [
+                    { type: 'embedded', codec: 'ass', index: 2 },
+                  ],
+                },
+              }),
+            )
+          : Promise.reject(new Error('should not be called')),
     } as never,
     { getAll: () => Promise.resolve([mediaSource]) } as never,
     {
@@ -437,6 +457,26 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
     expect(harness.getChannelGuides).toHaveBeenCalledExactlyOnceWith(
       expect.anything(),
       [CHANNEL_ID],
+    );
+  });
+});
+
+describe('attached font extraction', () => {
+  it('checks fonts even when the embedded ASS subtitle is already cached', async () => {
+    mockFileExists.mockResolvedValue(true);
+    mockCacheSubtitleFonts.mockClear();
+    const harness = makeHarness({
+      subtitles: [],
+      enableSubtitleExtraction: true,
+      existingAss: true,
+    });
+    await run(harness);
+    expect(mockCacheSubtitleFonts).toHaveBeenCalledOnce();
+    expect(mockCacheSubtitleFonts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: '/media/video.mkv',
+        destination: expect.stringContaining('/cache/subtitle-fonts/'),
+      }),
     );
   });
 });

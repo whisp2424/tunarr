@@ -3,11 +3,12 @@ import { SubtitlesInputSource } from '../input/SubtitlesInputSource.js';
 import { ExternalSubtitleStream, SubtitleMethods } from '../MediaStream.js';
 import { SubtitleFilter } from './SubtitleFilter.js';
 
-function makeFilter(path: string) {
+function makeFilter(path: string, fontsDirectory?: string) {
   const source = new SubtitlesInputSource(
     new FileStreamSource(path),
     [new ExternalSubtitleStream('subrip', SubtitleMethods.Burn)],
     SubtitleMethods.Burn,
+    fontsDirectory,
   );
   return new SubtitleFilter(source).filter;
 }
@@ -41,6 +42,12 @@ describe('SubtitleFilter', () => {
     ],
   ])('escapes %s', (_label, path, expected) => {
     expect(makeFilter(path)).toBe(expected);
+  });
+
+  test('escapes a program-specific fonts directory', () => {
+    expect(makeFilter('/cache/a.ass', '/cache/fonts: name, [one]')).toBe(
+      String.raw`subtitles=/cache/a.ass:fontsdir=/cache/fonts\\: name\, \[one\]`,
+    );
   });
 
   test('leaves ordinary and Unicode filename characters unchanged', () => {

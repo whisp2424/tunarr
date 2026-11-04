@@ -12,6 +12,17 @@ type MinimalProgram = {
   externalKey: string;
 };
 
+/** A program's fonts are isolated from those of every other program. */
+export function getSubtitleFontsCachePath(program: MinimalProgram): string {
+  const hash = getSubtitleCacheFileName(
+    program,
+    undefined,
+    'fonts-v1',
+    undefined,
+  );
+  return path.join(hash.slice(0, 2), hash);
+}
+
 export function subtitleCodecToExt(codec: string): Nullable<string> {
   return match(codec)
     .with(P.union('srt', 'subrip', 'mov_text'), () => 'srt')

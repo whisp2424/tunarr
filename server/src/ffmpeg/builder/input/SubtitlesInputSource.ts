@@ -11,6 +11,7 @@ export class SubtitlesInputSource extends InputSource<SubtitleStream> {
     source: StreamSource,
     public streams: SubtitleStream[],
     public method: SubtitleMethod,
+    public fontsDirectory?: string,
   ) {
     super(source, 'discrete');
   }

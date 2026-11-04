@@ -35,13 +35,18 @@ import { Result } from '../types/result.ts';
 import { ChildProcessHelper } from '../util/ChildProcessHelper.ts';
 import {
   CacheFolderName,
+  SubtitleFontsCacheFolderName,
   SubtitlesCacheFolderName,
 } from '../util/constants.ts';
 import { fileExists } from '../util/fsUtil.ts';
 import { isDefined, isNonEmptyString } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
-import { getSubtitleCacheFilePath } from '../util/subtitles.ts';
+import {
+  getSubtitleCacheFilePath,
+  getSubtitleFontsCachePath,
+} from '../util/subtitles.ts';
+import { cacheSubtitleFonts } from './SubtitleFontCache.ts';
 import { Task2 } from './Task.ts';
 import { taskDef } from './TaskRegistry.ts';
 
@@ -360,6 +365,47 @@ export class SubtitleExtractorTask extends Task2<
       }) ?? [];
 
     const ffmpegSetting = this.settingsDB.ffmpegSettings();
+
+    if (
+      stream
+        .get()
+        .streamDetails.subtitleDetails?.some(
+          (subtitle) => subtitle.codec.toLowerCase() === 'ass',
+        )
+    ) {
+      const fontsPath = path.join(
+        this.globalOptions.databaseDirectory,
+        CacheFolderName,
+        SubtitleFontsCacheFolderName,
+        getSubtitleFontsCachePath({
+          externalKey: program.program.externalId,
+          externalSourceId: tag(program.program.mediaSourceId),
+          externalSourceType: program.program.sourceType,
+          id: program.id,
+        }),
+      );
+      const fontResult = await Result.attemptAsync(() =>
+        cacheSubtitleFonts({
+          source: stream.get().streamSource.path,
+          destination: fontsPath,
+          ffmpeg: ffmpegSetting.ffmpegExecutablePath,
+          ffprobe: ffmpegSetting.ffprobeExecutablePath,
+          run: (executable, args) =>
+            new ChildProcessHelper().getStdout(executable, args, {
+              swallowError: false,
+              isPath: true,
+              timeout: 500_000,
+            }),
+        }),
+      );
+      if (fontResult.isFailure()) {
+        this.logger.warn(
+          fontResult.error,
+          'Failed to extract subtitle fonts for program %s',
+          program.id,
+        );
+      }
+    }
 
     if (textBasedSubs.length === 0) {
       this.logger.debug('No text-based subtitles for ID: %s', program.id);

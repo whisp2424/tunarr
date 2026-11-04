@@ -1,6 +1,7 @@
 export const SettingsJsonFilename = 'settings.json';
 export const CacheFolderName = 'cache';
 export const SubtitlesCacheFolderName = 'subtitles';
+export const SubtitleFontsCacheFolderName = 'subtitle-fonts';
 export const PosterCacheFolderName = 'posters';
 export const BannerCacheFolderName = 'banners';
 export const FanartCacheFolderName = 'fanart';
