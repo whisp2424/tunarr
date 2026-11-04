@@ -7,6 +7,8 @@ Custom Shows are akin to classic playlists. Any ordering operations in schedulin
 
 A Custom Show can be created empty, but slot editors only offer it once it has programs with a duration greater than zero. Programs with no duration cannot be scheduled, so a show made only of them counts as empty. See [Time Slots](../scheduling/time-slots.md#empty-or-deleted-custom-shows) and the [Slots Editor](../scheduling/random-slots.md#empty-or-deleted-custom-shows).
 
+Enable **Show consecutive videos as one block in the guide and channel editor** when editing a Custom Show to display each consecutive run under the show's name. The channel editor lets you expand the block to see its videos. The guide and XMLTV show the block's combined duration. Playback still plays each video in order. Other programs between videos end the block, and the guide's generated time range limits its extent.
+
 ## Updating Content Through the API
 
 `PUT /api/custom-shows/{id}` treats the `programs` field as follows.

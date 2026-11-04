@@ -2,7 +2,7 @@ import { styled } from '@mui/material';
 import type { TvGuideProgram } from '@tunarr/types';
 import Color from 'colorjs.io';
 import { isUndefined } from 'lodash-es';
-import { alternateColors } from '../../helpers/util.ts';
+import { alternateColors, isNonEmptyString } from '../../helpers/util.ts';
 import { TvGuideGridChild } from './TvGuideGridChild.tsx';
 
 export const TvGuideItem = styled(TvGuideGridChild, {
@@ -31,7 +31,9 @@ export const TvGuideItem = styled(TvGuideGridChild, {
   const bgDarker = new Color(bgColor).set('oklch.l', (l) => l * 0.95);
 
   const background =
-    isUndefined(program) || program.type === 'flex' || program.isPaused
+    isUndefined(program) ||
+    (program.type === 'flex' && !isNonEmptyString(program.customShowId)) ||
+    program.isPaused
       ? `repeating-linear-gradient(-45deg,
               ${bgColor},
               ${bgColor} 10px,
@@ -40,7 +42,9 @@ export const TvGuideItem = styled(TvGuideGridChild, {
       : bgColor;
 
   const hoverBackground =
-    isUndefined(program) || program.type === 'flex' || program.isPaused
+    isUndefined(program) ||
+    (program.type === 'flex' && !isNonEmptyString(program.customShowId)) ||
+    program.isPaused
       ? `repeating-linear-gradient(-45deg,
   ${bgLighter.toString()},
   ${bgLighter.toString()} 10px,

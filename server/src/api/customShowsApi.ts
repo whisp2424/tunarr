@@ -45,6 +45,7 @@ export const customShowsApiV2: RouterPluginAsyncCallback = async (fastify) => {
         customShows.map((cs) => ({
           id: cs.id,
           name: cs.name,
+          singleBlock: cs.singleBlock,
           contentCount: cs.count,
           schedulableContentCount: cs.schedulableCount,
           totalDuration: isNumber(cs.totalDuration)
@@ -84,6 +85,7 @@ export const customShowsApiV2: RouterPluginAsyncCallback = async (fastify) => {
       return res.status(200).send({
         id: customShow.uuid,
         name: customShow.name,
+        singleBlock: customShow.singleBlock,
         contentCount: customShow.content.length,
         schedulableContentCount: sumBy(customShow.content, ({ program }) =>
           hasSchedulableDuration(program.duration) ? 1 : 0,
@@ -135,9 +137,14 @@ export const customShowsApiV2: RouterPluginAsyncCallback = async (fastify) => {
         return res.status(404).send();
       }
 
+      if (req.body.singleBlock !== undefined || req.body.name) {
+        await req.serverCtx.guideService.refreshCustomShowBlocks();
+      }
+
       return res.status(200).send({
         id: customShow.uuid,
         name: customShow.name,
+        singleBlock: customShow.singleBlock,
         contentCount: customShow.content.length,
         schedulableContentCount: sumBy(customShow.content, ({ program }) =>
           hasSchedulableDuration(program.duration) ? 1 : 0,
@@ -233,6 +240,7 @@ export const customShowsApiV2: RouterPluginAsyncCallback = async (fastify) => {
       return res.status(201).send({
         id: newShow.uuid,
         name: newShow.name,
+        singleBlock: newShow.singleBlock,
         contentCount: newShow.content.length,
         schedulableContentCount: sumBy(newShow.content, ({ program }) =>
           hasSchedulableDuration(program.duration) ? 1 : 0,
@@ -276,6 +284,7 @@ export const customShowsApiV2: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       await req.serverCtx.customShowDB.deleteShow(req.params.id);
+      await req.serverCtx.guideService.refreshCustomShowBlocks();
 
       return res.status(200).send({ id: req.params.id });
     },
@@ -320,6 +329,7 @@ export const customShowsApiV2: RouterPluginAsyncCallback = async (fastify) => {
       return res.status(200).send({
         id: updatedShow.uuid,
         name: updatedShow.name,
+        singleBlock: updatedShow.singleBlock,
         contentCount: updatedShow.content.length,
         schedulableContentCount: sumBy(updatedShow.content, ({ program }) =>
           hasSchedulableDuration(program.duration) ? 1 : 0,

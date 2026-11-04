@@ -10,6 +10,7 @@ export const CustomShowSyncMediaSourceTypeSchema = z.enum(['plex']);
 export const CustomShowSchema = z.object({
   id: z.string(),
   name: z.string(),
+  singleBlock: z.boolean().default(false),
   contentCount: z.number(),
   // Members with a positive duration. A custom show slot needs at least one.
   schedulableContentCount: z.number(),

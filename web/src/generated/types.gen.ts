@@ -5490,6 +5490,7 @@ export type GetApiChannelsAllLineupsResponses = {
             isPaused: boolean;
             timeRemaining?: number;
             title: string;
+            customShowId?: string;
         }>;
     }>;
 };
@@ -5600,6 +5601,7 @@ export type GetApiChannelsByIdLineupResponses = {
             isPaused: boolean;
             timeRemaining?: number;
             title: string;
+            customShowId?: string;
         }>;
     };
 };
@@ -5695,6 +5697,7 @@ export type GetApiChannelsByIdNowPlayingResponses = {
         isPaused: boolean;
         timeRemaining?: number;
         title: string;
+        customShowId?: string;
     };
 };
 
@@ -6664,6 +6667,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 customShow: {
                     id: string;
                     name: string;
+                    singleBlock: boolean;
                     contentCount: number;
                     syncMediaSourceId?: string | null;
                     syncMediaSourceType?: 'plex' | null;
@@ -7033,6 +7037,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                 customShow: {
                     id: string;
                     name: string;
+                    singleBlock: boolean;
                     contentCount: number;
                     syncMediaSourceId?: string | null;
                     syncMediaSourceType?: 'plex' | null;
@@ -7242,6 +7247,7 @@ export type GetApiCustomShowsResponses = {
     200: Array<{
         id: string;
         name: string;
+        singleBlock: boolean;
         contentCount: number;
         schedulableContentCount: number;
         programs?: Array<{
@@ -7275,6 +7281,7 @@ export type GetApiCustomShowsResponse = GetApiCustomShowsResponses[keyof GetApiC
 export type CreateCustomShowData = {
     body: {
         name: string;
+        singleBlock?: boolean;
         programs?: Array<{
             type: 'content';
             duration: number;
@@ -7298,6 +7305,7 @@ export type CreateCustomShowResponses = {
     201: {
         id: string;
         name: string;
+        singleBlock: boolean;
         contentCount: number;
         schedulableContentCount: number;
         programs?: Array<{
@@ -7378,6 +7386,7 @@ export type GetApiCustomShowsByIdResponses = {
     200: {
         id: string;
         name: string;
+        singleBlock: boolean;
         contentCount: number;
         schedulableContentCount: number;
         programs?: Array<{
@@ -7411,6 +7420,7 @@ export type GetApiCustomShowsByIdResponse = GetApiCustomShowsByIdResponses[keyof
 export type PutApiCustomShowsByIdData = {
     body: {
         name?: string;
+        singleBlock?: boolean;
         programs?: Array<{
             type: 'content';
             duration: number;
@@ -7450,6 +7460,7 @@ export type PutApiCustomShowsByIdResponses = {
     200: {
         id: string;
         name: string;
+        singleBlock: boolean;
         contentCount: number;
         schedulableContentCount: number;
         programs?: Array<{
@@ -7552,6 +7563,7 @@ export type SyncCustomShowResponses = {
     200: {
         id: string;
         name: string;
+        singleBlock: boolean;
         contentCount: number;
         schedulableContentCount: number;
         programs?: Array<{
@@ -10922,6 +10934,7 @@ export type GetApiGuideChannelsResponses = {
                 isPaused: boolean;
                 timeRemaining?: number;
                 title: string;
+                customShowId?: string;
             }>;
         };
     };

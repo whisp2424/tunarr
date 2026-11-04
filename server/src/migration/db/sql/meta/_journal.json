@@ -386,6 +386,13 @@
       "when": 1792324263139,
       "tag": "0054_unknown_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1793744314654,
+      "tag": "0055_material_doorman",
+      "breakpoints": true
     }
   ]
 }

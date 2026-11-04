@@ -1,5 +1,6 @@
 import { sumBy } from 'lodash-es';
 import type { UIChannelProgram } from '../types/index.ts';
+import { isNonEmptyString } from './util.ts';
 
 export type MidRollGroup = {
   parentProgram: UIChannelProgram;
@@ -8,6 +9,7 @@ export type MidRollGroup = {
   totalDuration: number;
   startTimeOffset?: number;
   groupKey: number;
+  customShowName?: string;
 };
 
 export type LineupDisplayItem =
@@ -50,12 +52,45 @@ function getContentId(p: UIChannelProgram): string | undefined {
 
 export function groupMidRollItems(
   programs: UIChannelProgram[],
+  blockShows: ReadonlyMap<string, string> = new Map(),
 ): LineupDisplayItem[] {
   const result: LineupDisplayItem[] = [];
   let i = 0;
 
   while (i < programs.length) {
     const current = programs[i];
+
+    const customShowName =
+      current.type === 'custom'
+        ? blockShows.get(current.customShowId)
+        : undefined;
+    if (isNonEmptyString(customShowName) && current.type === 'custom') {
+      let end = i + 1;
+      while (end < programs.length) {
+        const next = programs[end];
+        if (
+          next.type !== 'custom' ||
+          next.customShowId !== current.customShowId
+        )
+          break;
+        end++;
+      }
+      const items = programs.slice(i, end);
+      result.push({
+        kind: 'mid-roll-group',
+        group: {
+          parentProgram: current,
+          items,
+          breakCount: 0,
+          totalDuration: sumBy(items, 'duration'),
+          startTimeOffset: current.startTimeOffset,
+          groupKey: current.originalIndex,
+          customShowName,
+        },
+      });
+      i = end;
+      continue;
+    }
 
     if (isContentLike(current)) {
       const contentId = getContentId(current);

@@ -59,6 +59,7 @@ dayjs.extend(relativeTime);
 type CustomShowForm = {
   id?: string;
   name: string;
+  singleBlock: boolean;
   syncEnabled: boolean;
   syncMediaSourceId: string;
   syncExternalPlaylistId: string;
@@ -99,6 +100,7 @@ export function EditCustomShowsForm({
   } = useForm<CustomShowForm>({
     defaultValues: {
       name: customShow.name ?? '',
+      singleBlock: customShow.singleBlock ?? false,
       syncEnabled: isSynced,
       syncMediaSourceId: customShow.syncMediaSourceId ?? '',
       syncExternalPlaylistId: customShow.syncExternalPlaylistId ?? '',
@@ -113,6 +115,7 @@ export function EditCustomShowsForm({
   useEffect(() => {
     reset({
       name: customShow.name,
+      singleBlock: customShow.singleBlock ?? false,
       syncEnabled: !!customShow.syncMediaSourceId,
       syncMediaSourceId: customShow.syncMediaSourceId ?? undefined,
       syncExternalPlaylistId: customShow.syncExternalPlaylistId ?? undefined,
@@ -153,6 +156,7 @@ export function EditCustomShowsForm({
     ) => {
       const body = {
         name: data.name,
+        singleBlock: data.singleBlock,
         // Sync owns a synced show's programs, so leave them out. An explicit
         // list replaces the show's contents.
         ...(data.syncEnabled ? {} : { programs: data.programs }),
@@ -185,6 +189,7 @@ export function EditCustomShowsForm({
     onSuccess: async (updatedShow) => {
       reset({
         name: updatedShow.data.name,
+        singleBlock: updatedShow.data.singleBlock ?? false,
         syncEnabled: !!updatedShow.data.syncMediaSourceId,
         syncMediaSourceId: updatedShow.data.syncMediaSourceId ?? undefined,
         syncExternalPlaylistId:
@@ -278,6 +283,22 @@ export function EditCustomShowsForm({
         />
 
         <Divider />
+
+        <Controller
+          control={control}
+          name="singleBlock"
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              }
+              label={t`Show consecutive videos as one block in the guide and channel editor`}
+            />
+          )}
+        />
 
         <Box>
           <Controller

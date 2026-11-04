@@ -1,0 +1,1 @@
+ALTER TABLE `custom_show` ADD `single_block` integer DEFAULT false NOT NULL;

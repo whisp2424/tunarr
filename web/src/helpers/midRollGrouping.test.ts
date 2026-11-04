@@ -51,6 +51,35 @@ function onlyGroup(items: UIChannelProgram[]): MidRollGroup {
 }
 
 describe('groupMidRollItems', () => {
+  test('groups consecutive custom show videos only when enabled', () => {
+    const content = makeContentProgram(makeMovie({ uuid: 'a' }), oneMin, 'a');
+    const first = withUiFields({
+      type: 'custom',
+      id: 'a',
+      customShowId: 'show',
+      index: 0,
+      duration: oneMin,
+      program: content,
+    });
+    const second = withUiFields({
+      type: 'custom',
+      id: 'b',
+      customShowId: 'show',
+      index: 1,
+      duration: oneMin,
+      program: content,
+    });
+    const items = [first, second, flex(oneMin), first];
+    expect(groupMidRollItems(items)).toHaveLength(4);
+    const grouped = groupMidRollItems(items, new Map([['show', 'My show']]));
+    expect(grouped).toHaveLength(3);
+    expect(grouped[0].kind).toBe('mid-roll-group');
+    if (grouped[0].kind === 'mid-roll-group') {
+      expect(grouped[0].group.items).toEqual([first, second]);
+      expect(grouped[0].group.totalDuration).toBe(2 * oneMin);
+      expect(grouped[0].group.customShowName).toBe('My show');
+    }
+  });
   test('groups segments separated by eager mid filler', () => {
     const items = [
       segment('ep1', 8 * oneMin, 0),

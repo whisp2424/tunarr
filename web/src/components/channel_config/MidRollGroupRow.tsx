@@ -15,7 +15,7 @@ import { isUndefined } from 'lodash-es';
 import { useMemo, type CSSProperties } from 'react';
 import { getTextContrast } from '../../helpers/colors.ts';
 import type { MidRollGroup } from '../../helpers/midRollGrouping.ts';
-import { grayBackground } from '../../helpers/util.ts';
+import { grayBackground, isNonEmptyString } from '../../helpers/util.ts';
 import { useChannelListItemIcon } from '../../hooks/channel_config/useChannelItemIcon.tsx';
 import { useRandomProgramBackgroundColor } from '../../hooks/colorHooks.ts';
 
@@ -46,10 +46,12 @@ export function MidRollGroupRow({
 
   // The header stands in for the whole program, breaks included, so it is
   // titled with the group's total duration rather than the first segment's.
-  const title = titleFormatter({
-    ...parentProgram,
-    duration: group.totalDuration,
-  });
+  const title =
+    group.customShowName ??
+    titleFormatter({
+      ...parentProgram,
+      duration: group.totalDuration,
+    });
 
   const startTimeDate = !isUndefined(group.startTimeOffset)
     ? dayjs(channel.startTime + group.startTimeOffset)
@@ -70,7 +72,11 @@ export function MidRollGroupRow({
     </Box>,
     <Chip
       key="breaks"
-      label={`${group.breakCount} break${group.breakCount !== 1 ? 's' : ''}`}
+      label={
+        isNonEmptyString(group.customShowName)
+          ? `${group.items.length} videos`
+          : `${group.breakCount} break${group.breakCount !== 1 ? 's' : ''}`
+      }
       size="small"
       variant="outlined"
       sx={{

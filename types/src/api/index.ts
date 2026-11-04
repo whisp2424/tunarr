@@ -91,6 +91,7 @@ export const BatchLookupExternalProgrammingSchema = z.object({
 
 export const CreateCustomShowRequestSchema = z.object({
   name: z.string(),
+  singleBlock: z.boolean().optional(),
   programs: z.array(CondensedContentProgramSchema).default([]),
   syncMediaSourceId: z.string().nullable(),
   syncMediaSourceType: z.enum(['plex']).nullable(),

@@ -1,5 +1,7 @@
 import { useProgramTitleFormatter } from '@/hooks/useProgramTitleFormatter.ts';
 import { useSuspendedStore } from '@/hooks/useSuspendedStore.ts';
+import { getApiCustomShowsOptions } from '@/generated/@tanstack/react-query.gen.ts';
+import { useQuery } from '@tanstack/react-query';
 import { deleteProgram } from '@/store/entityEditor/util.ts';
 
 import { Plural, Trans } from '@lingui/react/macro';
@@ -39,7 +41,11 @@ import {
   groupMidRollItems,
   type FlatDisplayItem,
 } from '../../helpers/midRollGrouping.ts';
-import { channelProgramUniqueId, grayBackground } from '../../helpers/util.ts';
+import {
+  channelProgramUniqueId,
+  grayBackground,
+  isNonEmptyString,
+} from '../../helpers/util.ts';
 import { useChannelListItemIcon } from '../../hooks/channel_config/useChannelItemIcon.tsx';
 import { useRandomProgramBackgroundColor } from '../../hooks/colorHooks.ts';
 import { moveProgramInCurrentChannel } from '../../store/channelEditor/actions.ts';
@@ -386,6 +392,19 @@ export default function ChannelLineupList(props: Props) {
   );
 
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const { data: customShows } = useQuery({
+    ...getApiCustomShowsOptions(),
+    enabled: programList.some((program) => program.type === 'custom'),
+  });
+  const blockShows = useMemo(
+    () =>
+      new Map(
+        (customShows ?? [])
+          .filter((show) => show.singleBlock)
+          .map((show) => [show.id, show.name]),
+      ),
+    [customShows],
+  );
 
   const toggleGroup = useCallback((groupKey: number) => {
     setExpandedGroups((prev) => {
@@ -400,8 +419,8 @@ export default function ChannelLineupList(props: Props) {
   }, []);
 
   const displayItems = useMemo(
-    () => groupMidRollItems(programList),
-    [programList],
+    () => groupMidRollItems(programList, blockShows),
+    [programList, blockShows],
   );
 
   const flatDisplayList = useMemo(
@@ -448,9 +467,18 @@ export default function ChannelLineupList(props: Props) {
         moveProgram={moveProgram}
         findProgram={findProgram}
         deleteProgram={deleteProgram}
-        enableDrag={!!enableDnd && !isGroupChild}
-        enableDelete={(props.enableRowDelete ?? true) && !isGroupChild}
-        enableEdit={(props.enableRowEdit ?? true) && !isGroupChild}
+        enableDrag={
+          !!enableDnd &&
+          (!isGroupChild || isNonEmptyString(item.group.customShowName))
+        }
+        enableDelete={
+          (props.enableRowDelete ?? true) &&
+          (!isGroupChild || isNonEmptyString(item.group.customShowName))
+        }
+        enableEdit={
+          (props.enableRowEdit ?? true) &&
+          (!isGroupChild || isNonEmptyString(item.group.customShowName))
+        }
         onInfoClicked={() => openDetailsDialog(program)}
         onEditClicked={openEditDialog}
         titleFormatter={titleFormatter}

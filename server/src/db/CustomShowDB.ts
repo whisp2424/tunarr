@@ -16,7 +16,7 @@ import { GenericBadRequestError } from '../types/errors.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import type { BasicProgramRepository } from './program/BasicProgramRepository.ts';
-import { CustomShow, type NewCustomShow } from './schema/CustomShow.ts';
+import { CustomShow } from './schema/CustomShow.ts';
 import {
   CustomShowContent,
   type NewCustomShowContent,
@@ -139,6 +139,9 @@ export class CustomShowDB {
     if (updateRequest.name) {
       updates.name = updateRequest.name;
     }
+    if (updateRequest.singleBlock !== undefined) {
+      updates.singleBlock = updateRequest.singleBlock;
+    }
 
     if (!updateRequest.enableSync) {
       updates.syncExternalPlaylistId = null;
@@ -200,12 +203,13 @@ export class CustomShowDB {
       createdAt: now,
       updatedAt: now,
       name: createRequest.name,
+      singleBlock: createRequest.singleBlock ?? false,
       syncMediaSourceId: createRequest.syncMediaSourceId ?? null,
       syncMediaSourceType: createRequest.syncMediaSourceType ?? null,
       syncExternalPlaylistId: createRequest.syncExternalPlaylistId ?? null,
-    } satisfies NewCustomShow;
+    } satisfies typeof CustomShow.$inferInsert;
 
-    await this.db.insertInto('customShow').values(show).execute();
+    await this.drizzle.insert(CustomShow).values(show);
 
     if (createRequest.programs.length > 0) {
       await this.upsertCustomShowContent(show.uuid, createRequest.programs);
@@ -279,6 +283,7 @@ export class CustomShowDB {
       ({ customShow, totalDuration, contentCount, schedulableCount }) => ({
         id: customShow.uuid,
         name: customShow.name,
+        singleBlock: customShow.singleBlock,
         count: contentCount,
         schedulableCount: schedulableCount
           ? (parseFloatOrNull(schedulableCount) ?? 0)

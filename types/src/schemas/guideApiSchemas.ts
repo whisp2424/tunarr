@@ -33,6 +33,7 @@ export const FlexGuideProgramSchema = FlexProgramSchema.merge(
   BaseGuideProgramSchema,
 ).extend({
   title: z.string(),
+  customShowId: z.string().optional(),
 });
 
 export const TvGuideProgramSchema = z.discriminatedUnion('type', [

@@ -10,6 +10,7 @@ export const CustomShow = sqliteTable('custom_show', {
   createdAt: integer(),
   updatedAt: integer(),
   name: text().notNull(),
+  singleBlock: integer({ mode: 'boolean' }).notNull().default(false),
   syncMediaSourceId: text().references(() => MediaSource.uuid, {
     onDelete: 'set null',
   }),

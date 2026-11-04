@@ -192,6 +192,26 @@ async function insertCustomShowContent(
 }
 
 describe('CustomShowDB', () => {
+  test('persists the single block setting and defaults it to off', async ({
+    customShowDb,
+  }) => {
+    const id = await customShowDb.createShow({
+      name: 'Show',
+      programs: [],
+      syncMediaSourceId: null,
+      syncMediaSourceType: null,
+      syncExternalPlaylistId: null,
+    });
+    expect((await customShowDb.getShow(id))?.singleBlock).toBe(false);
+    await customShowDb.saveShow(id, { enableSync: false, singleBlock: true });
+    expect((await customShowDb.getShow(id))?.singleBlock).toBe(true);
+    expect(
+      (await customShowDb.getAllShowsInfo()).find((show) => show.id === id)
+        ?.singleBlock,
+    ).toBe(true);
+    await customShowDb.saveShow(id, { enableSync: false, singleBlock: false });
+    expect((await customShowDb.getShow(id))?.singleBlock).toBe(false);
+  });
   describe('duplicate programs in custom shows', () => {
     test('should allow the same program to appear multiple times with different indexes', async ({
       drizzle,

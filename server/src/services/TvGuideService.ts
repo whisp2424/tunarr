@@ -86,6 +86,7 @@ import {
   XmlTvWriter,
 } from './XmlTvWriter.ts';
 import { findMidRollAnchorIndex, isSameProgramSegment } from './tvGuideUtil.ts';
+import { groupCustomShowGuideBlocks } from './customShowGuideBlocks.ts';
 
 export type ChannelAndPrograms = ChannelOrm & {
   programs: Pick<ProgramOrm, 'uuid'>[];
@@ -107,6 +108,7 @@ type GuideItem = {
   // guide states we extend the guide time arbitrarily
   timeRemaining?: number;
   redirectChannelId?: string;
+  customBlockTitle?: string;
 };
 
 export type TvGuideChannel = {
@@ -168,6 +170,36 @@ export class TVGuideService {
   private accumulateTable: Record<string, number[]> = {};
   private channelsById?: Record<string, ChannelWithLineup>;
   private guideBuildLock = new Mutex();
+
+  private async getBlockShows(
+    entries: GuideItem[],
+  ): Promise<Map<string, string>> {
+    const ids = uniq(
+      entries.flatMap(({ lineupItem }) =>
+        lineupItem.type === 'content' &&
+        isNonEmptyString(lineupItem.customShowId)
+          ? [lineupItem.customShowId]
+          : [],
+      ),
+    );
+    if (ids.length === 0) return new Map();
+    const shows = await this.db
+      .selectFrom('customShow')
+      .select(['uuid', 'name', 'singleBlock'])
+      .where('uuid', 'in', ids)
+      .execute();
+    return new Map(
+      shows
+        .filter((show) => show.singleBlock)
+        .map((show) => [show.uuid, show.name]),
+    );
+  }
+
+  async refreshCustomShowBlocks(): Promise<void> {
+    if (!isEmpty(this.cachedGuide)) {
+      await this.writeXmlTv();
+    }
+  }
 
   @InjectLogger() declare private readonly logger: Logger;
 
@@ -1155,6 +1187,9 @@ export class TVGuideService {
     const allProgramsById = await this.getAllCurrentGuidePrograms(
       guides.flatMap(({ programs }) => programs),
     );
+    const blockShows = await this.getBlockShows(
+      guides.flatMap(({ programs }) => programs),
+    );
 
     // Yield per channel: every channel's guide items together are tens of
     // milliseconds of synchronous work on a large guide.
@@ -1163,8 +1198,9 @@ export class TVGuideService {
       await throttle();
       materializedGuide.push({
         channel,
-        programs: programs.map((program) =>
-          this.materializeGuideItem(channel, program, allProgramsById),
+        programs: groupCustomShowGuideBlocks(programs, blockShows).map(
+          (program) =>
+            this.materializeGuideItem(channel, program, allProgramsById),
         ),
       });
     }
@@ -1192,6 +1228,10 @@ export class TVGuideService {
     channelIdFilter?: string[],
   ) {
     const allChannels = await this.channelDB.getAllChannels();
+    await this.get();
+    const blockShows = await this.getBlockShows(
+      Object.values(this.cachedGuide).flatMap(({ programs }) => programs),
+    );
     const channelsById = groupByUniq(allChannels, (c) => c.uuid);
     const startTime = dateRange.from ?? dayjs();
     const endTime = dateRange.to;
@@ -1205,12 +1245,20 @@ export class TVGuideService {
             ? endTime
             : dayjs(startTime.add(channel.guideMinimumDuration, 'seconds'));
 
-          const guideItems =
-            (await this.getChannelLineup(
-              channel.uuid,
-              startTime.toDate(),
-              actualEndTime.toDate(),
-            )) ?? [];
+          await this.getChannelLineup(
+            channel.uuid,
+            startTime.toDate(),
+            actualEndTime.toDate(),
+          );
+          const guideItems = groupCustomShowGuideBlocks(
+            this.cachedGuide[channel.uuid]?.programs ?? [],
+            blockShows,
+          ).filter(
+            (item) =>
+              item.startTimeMs < actualEndTime.valueOf() &&
+              item.startTimeMs + item.lineupItem.durationMs >
+                startTime.valueOf(),
+          );
 
           return {
             channel,
@@ -1318,6 +1366,18 @@ export class TVGuideService {
       timeRemaining: guideItem.timeRemaining,
     } as const;
 
+    if (isNonEmptyString(guideItem.customBlockTitle)) {
+      return {
+        ...baseItem,
+        type: 'flex',
+        title: guideItem.customBlockTitle,
+        customShowId:
+          guideItem.lineupItem.type === 'content'
+            ? guideItem.lineupItem.customShowId
+            : undefined,
+      };
+    }
+
     if (isNull(materializedItem)) {
       materializedItem = this.programConverter.offlineLineupItemToProgram(
         channel,
@@ -1414,6 +1474,14 @@ export class TVGuideService {
       stop: currentProgram.startTimeMs + currentProgram.lineupItem.durationMs,
       isPaused,
     } as const;
+
+    if (isNonEmptyString(currentProgram.customBlockTitle)) {
+      return {
+        ...baseItem,
+        title: currentProgram.customBlockTitle,
+        programming: { type: 'flex' },
+      };
+    }
 
     return match(currentProgram.lineupItem)
       .returnType<MaterializedGuideItem>()
