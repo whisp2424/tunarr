@@ -37,8 +37,6 @@ This is a monorepo with four main packages:
 
 ## Development Setup
 
-For new feature work, follow `docs/dev/fork-test-workflow.md`, including its post-merge cleanup. Use a copy of live data when the feature needs realistic library or playback data; otherwise use an appropriate isolated fixture.
-
 ### Package Manager & Task Runner
 
 - Use **pnpm** (v12.15.0) for all dependency management - never use npm or yarn
