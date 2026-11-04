@@ -4045,6 +4045,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -4063,6 +4068,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 seasonExcludeFilter: Array<number>;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -4076,6 +4086,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 type: 'flex';
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -4122,6 +4137,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -4138,6 +4158,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
                 customShowId: string;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -4218,6 +4243,11 @@ export type GetApiChannelsByIdProgrammingResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -4582,6 +4612,11 @@ export type PostApiChannelsByIdProgrammingData = {
                     strategy?: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -4600,6 +4635,11 @@ export type PostApiChannelsByIdProgrammingData = {
                 seasonExcludeFilter?: Array<number>;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -4613,6 +4653,11 @@ export type PostApiChannelsByIdProgrammingData = {
                 type: 'flex';
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -4659,6 +4704,11 @@ export type PostApiChannelsByIdProgrammingData = {
                     strategy?: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -4675,6 +4725,11 @@ export type PostApiChannelsByIdProgrammingData = {
                 customShowId: string;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -4755,6 +4810,11 @@ export type PostApiChannelsByIdProgrammingData = {
                     strategy?: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -5136,6 +5196,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -5154,6 +5219,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 seasonExcludeFilter: Array<number>;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -5167,6 +5237,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 type: 'flex';
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -5213,6 +5288,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -5229,6 +5309,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
                 customShowId: string;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -5309,6 +5394,11 @@ export type PostApiChannelsByIdProgrammingResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -6124,6 +6214,11 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     strategy?: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -6142,6 +6237,11 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 seasonExcludeFilter?: Array<number>;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -6155,6 +6255,11 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 type: 'flex';
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -6201,6 +6306,11 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     strategy?: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -6217,6 +6327,11 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                 customShowId: string;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -6297,6 +6412,11 @@ export type PostApiChannelsByChannelIdScheduleSlotsData = {
                     strategy?: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary?: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec?: {
                     durationMs: number;
@@ -6824,6 +6944,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -6849,6 +6974,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                 };
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -6862,6 +6992,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                 type: 'flex';
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -7020,6 +7155,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -7048,6 +7188,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                 isMissing: boolean;
             } | {
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;
@@ -7134,6 +7279,11 @@ export type GetApiChannelsByIdScheduleResponses = {
                     strategy: 'eager' | 'lazy';
                 };
                 cooldownMs: number;
+                timeWindow?: {
+                    startMinute: number;
+                    endMinute: number;
+                    boundary: 'finish' | 'start';
+                };
                 periodMs?: number;
                 durationSpec: {
                     durationMs: number;

@@ -21,6 +21,10 @@ The **Cooldown** parameter sets the minimum amount of time that must pass before
 
 Cooldown only applies to the "random" slot choice modes (uniform and weighted), which pick slots at random during schedule generation. Sequential ("none") mode walks the slots in order and ignores cooldown. A cooldown of 0 places no restriction.
 
+A slot can optionally be restricted to a daily **time range**. The start is inclusive and the end is exclusive. An end time earlier than the start makes an overnight range; equal start and end times mean the full day. Times use the server's local time zone.
+
+By default, programming and its filler must finish within the range. The alternative **Start within range** rule allows the entire slot to continue after the end time. Other eligible slots can play outside the range. If none are eligible, Tunarr fills the gap with Flex until a slot becomes eligible.
+
 Some programming types also allow configuration of the **order** in which their constituents are scheduled. This controls the playback order; for example, if using "Next" ordering for a TV Show, episodes will be iterated over in episode order during scheduling.
 
 ### Slot Requirements

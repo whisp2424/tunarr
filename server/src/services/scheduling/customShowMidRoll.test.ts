@@ -178,4 +178,45 @@ describe('mid-roll breaks in custom show slots', () => {
 
     expectSplitAtBreaks(result.lineup as Item[]);
   });
+
+  test('limits mid-rolls to the remaining daily window', () => {
+    const schedule: RandomSlotSchedule = {
+      type: 'random',
+      flexPreference: 'end',
+      maxDays: 0,
+      padMs: 1,
+      padStyle: 'episode',
+      randomDistribution: 'uniform',
+      lockWeights: false,
+      slots: [
+        {
+          weight: 100,
+          cooldownMs: 0,
+          durationSpec: { type: 'dynamic', programCount: 1 },
+          type: 'custom-show',
+          customShowId,
+          order: 'next',
+          direction: 'asc',
+          filler,
+          midRoll,
+          timeWindow: { startMinute: 0, endMinute: 26, boundary: 'finish' },
+        },
+      ],
+    };
+    const start = dayjs('2024-01-01T00:00:00');
+    const result = new RandomSlotScheduler(schedule).generateSchedule(
+      [...movies, ...commercials],
+      [42, 99],
+      0,
+      start,
+    );
+    const beforeFlex = result.lineup.slice(
+      0,
+      result.lineup.findIndex((item) => item.type === 'flex'),
+    );
+    expect(beforeFlex.some((item) => item.type === 'filler')).toBe(true);
+    expect(
+      beforeFlex.reduce((total, item) => total + item.duration, 0),
+    ).toBeLessThanOrEqual(26 * oneMin);
+  });
 });

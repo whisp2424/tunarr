@@ -19,6 +19,10 @@ export class RandomSlotImpl<
     super(slot, iterator, random, fillerIteratorsByListId);
   }
 
+  get timeWindow() {
+    return this.slot.timeWindow;
+  }
+
   get cooldownMs() {
     return this.slot.cooldownMs;
   }

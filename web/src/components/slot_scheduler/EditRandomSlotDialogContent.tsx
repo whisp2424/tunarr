@@ -14,6 +14,9 @@ import {
   Button,
   DialogActions,
   DialogContent,
+  FormControlLabel,
+  MenuItem,
+  Switch,
   Slider,
   Stack,
   Tab,
@@ -161,6 +164,7 @@ export const EditRandomSlotDialogContent = ({
     (fillerValues as { types?: string[] }[] | undefined)?.some((f) =>
       f.types?.includes('mid'),
     ) ?? false;
+  const timeWindow = watch('timeWindow');
   const [tab, setTab] = useState(0);
   const { data: fillerLists } = useFillerLists();
   const programLookup = useStore((s) => s.programLookup);
@@ -178,7 +182,7 @@ export const EditRandomSlotDialogContent = ({
   const [weightValue, setWeightValue] = useState(getValues('weight'));
 
   const handleWeightChange = (_: Event, newValue: number | number[]) => {
-    setWeightValue(newValue as number);
+    if (typeof newValue === 'number') setWeightValue(newValue);
   };
 
   const adjustSlotWeights = useAdjustRandomSlotWeights();
@@ -527,6 +531,81 @@ export const EditRandomSlotDialogContent = ({
                   />
                 )}
               </Stack>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={!!timeWindow}
+                    onChange={(_, checked) =>
+                      setValue(
+                        'timeWindow',
+                        checked
+                          ? {
+                              startMinute: 0,
+                              endMinute: 60,
+                              boundary: 'finish',
+                            }
+                          : undefined,
+                        { shouldDirty: true },
+                      )
+                    }
+                  />
+                }
+                label={t`Restrict playback to a time range`}
+              />
+              {timeWindow && (
+                <Stack direction="row" gap={1}>
+                  {(['startMinute', 'endMinute'] as const).map((key) => (
+                    <TextField
+                      key={key}
+                      type="time"
+                      label={
+                        key === 'startMinute' ? t`Start time` : t`End time`
+                      }
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      value={`${String(Math.floor(timeWindow[key] / 60)).padStart(2, '0')}:${String(timeWindow[key] % 60).padStart(2, '0')}`}
+                      onChange={(event) => {
+                        const [hours, minutes] = event.target.value
+                          .split(':')
+                          .map(Number);
+                        if (
+                          Number.isFinite(hours) &&
+                          Number.isFinite(minutes) &&
+                          event.target.value
+                        ) {
+                          setValue(
+                            'timeWindow',
+                            { ...timeWindow, [key]: hours * 60 + minutes },
+                            { shouldDirty: true },
+                          );
+                        }
+                      }}
+                    />
+                  ))}
+                  <TextField
+                    select
+                    label={t`Window rule`}
+                    value={timeWindow.boundary}
+                    onChange={(event) =>
+                      setValue(
+                        'timeWindow',
+                        {
+                          ...timeWindow,
+                          boundary:
+                            event.target.value === 'start' ? 'start' : 'finish',
+                        },
+                        { shouldDirty: true },
+                      )
+                    }
+                  >
+                    <MenuItem value="finish">
+                      <Trans>Finish within range</Trans>
+                    </MenuItem>
+                    <MenuItem value="start">
+                      <Trans>Start within range</Trans>
+                    </MenuItem>
+                  </TextField>
+                </Stack>
+              )}
               <FormProvider {...formMethods}>
                 <EditSlotProgrammingForm
                   newSlotForType={newSlotForType}

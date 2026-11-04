@@ -37,6 +37,13 @@ export type RandomSlotDurationSpec = z.infer<typeof RandomSlotDurationSpec>;
 
 export const BaseRandomSlotSchema = z.object({
   cooldownMs: z.number(),
+  timeWindow: z
+    .object({
+      startMinute: z.number().int().min(0).max(1439),
+      endMinute: z.number().int().min(0).max(1439),
+      boundary: z.enum(['finish', 'start']).default('finish'),
+    })
+    .optional(),
   periodMs: z.number().optional(),
   durationSpec: RandomSlotDurationSpec.default({
     type: 'dynamic',

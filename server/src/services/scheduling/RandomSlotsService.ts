@@ -27,6 +27,7 @@ import type { Nilable } from '../../types/util.ts';
 import { isNonEmptyArray, zipWithIndex } from '../../util/index.ts';
 import { type IterationState } from './ProgramIterator.ts';
 import { RandomSlotImpl } from './RandomSlotImpl.ts';
+import { randomSlotTimeWindow } from './randomSlotTimeWindow.ts';
 import type {
   PaddedProgram,
   SlotSchedulerProgram,
@@ -252,10 +253,12 @@ export class RandomSlotScheduler {
     const emptySlotIndexes = new Set<number>();
     const reportedEmptySlotIndexes = new Set<number>();
     let emptySlotCursorMs = +context.timeCursor;
+    const retryTimes = new Map<number, dayjs.Dayjs>();
 
     while (context.timeCursor.isBefore(upperLimit)) {
       if (+context.timeCursor !== emptySlotCursorMs) {
         emptySlotIndexes.clear();
+        retryTimes.clear();
         emptySlotCursorMs = +context.timeCursor;
       }
 
@@ -268,20 +271,40 @@ export class RandomSlotScheduler {
 
       let selected: { slot: RandomSlotImpl; index: number } | null = null;
       let nextEligibleTime: dayjs.Dayjs | null = null;
+      const excluded = new Set(emptySlotIndexes);
+      for (const [slot, index] of zipWithIndex(context.sortedSlots)) {
+        if (!slot.timeWindow) continue;
+        const window = randomSlotTimeWindow(
+          context.timeCursor,
+          slot.timeWindow,
+        );
+        if (!window.end) {
+          excluded.add(index);
+          retryTimes.set(index, window.nextStart);
+        }
+      }
       switch (randomDistribution) {
         case 'uniform':
         case 'weighted': {
-          const result = this.getRandomSlot(context, emptySlotIndexes);
+          const result = this.getRandomSlot(context, excluded);
           selected = result.selected;
           nextEligibleTime = result.nextEligibleTime;
           break;
         }
         case 'none':
-          selected = context.getNextSequentialSlot(emptySlotIndexes);
+          selected = context.getNextSequentialSlot(excluded);
           break;
       }
 
       if (isNull(selected)) {
+        for (const retry of retryTimes.values()) {
+          if (
+            retry.isAfter(context.timeCursor) &&
+            (!nextEligibleTime || retry.isBefore(nextEligibleTime))
+          ) {
+            nextEligibleTime = retry;
+          }
+        }
         // Nothing can play now. Wait for the earliest cooldown to end, or fill
         // the rest of the window when no slot is left to try.
         const flexEnd =
@@ -304,14 +327,30 @@ export class RandomSlotScheduler {
       }
 
       const slotStartMs = +context.timeCursor;
+      const window = currSlot.timeWindow
+        ? randomSlotTimeWindow(context.timeCursor, currSlot.timeWindow)
+        : null;
+      const budget =
+        currSlot.timeWindow?.boundary === 'finish' &&
+        currSlot.timeWindow.startMinute !== currSlot.timeWindow.endMinute &&
+        window?.end
+          ? +window.end - slotStartMs
+          : Infinity;
       const maybePrograms =
         currSlot.durationSpec.type === 'fixed'
-          ? this.handleFixedDurationSlot(currSlot, context)
-          : this.handleDynamicDurationSlot(currSlot, context);
+          ? this.handleFixedDurationSlot(currSlot, context, budget)
+          : this.handleDynamicDurationSlot(currSlot, context, budget);
 
       if (!maybePrograms) {
         if (+context.timeCursor === slotStartMs) {
           emptySlotIndexes.add(currSlotIndex);
+          if (
+            window?.end &&
+            currSlot.timeWindow &&
+            currSlot.timeWindow.startMinute !== currSlot.timeWindow.endMinute
+          ) {
+            retryTimes.set(currSlotIndex, window.nextStart);
+          }
           if (!reportedEmptySlotIndexes.has(currSlotIndex)) {
             reportedEmptySlotIndexes.add(currSlotIndex);
             this.logger.warn(
@@ -336,18 +375,27 @@ export class RandomSlotScheduler {
       }
 
       let midRollOffset = 0;
+      let remainingBreakBudget = Math.max(
+        0,
+        budget - sum(map(paddedPrograms, (p) => p.totalDuration)),
+      );
       const finalPrograms: PaddedProgram[] = [];
       for (const pp of paddedPrograms) {
-        finalPrograms.push(
-          ...applyMidRollBreaks(
-            pp,
-            currSlot,
-            currSlot.midRollConfig,
-            context.random,
-            +context.timeCursor + midRollOffset,
-          ),
+        const withBreaks = applyMidRollBreaks(
+          pp,
+          currSlot,
+          currSlot.midRollConfig,
+          context.random,
+          +context.timeCursor + midRollOffset,
+          remainingBreakBudget,
         );
-        midRollOffset += pp.totalDuration;
+        const durationWithBreaks = sum(map(withBreaks, (p) => p.totalDuration));
+        remainingBreakBudget -= Math.max(
+          0,
+          durationWithBreaks - pp.totalDuration,
+        );
+        finalPrograms.push(...withBreaks);
+        midRollOffset += durationWithBreaks;
       }
 
       const totalDuration = sum(map(finalPrograms, (p) => p.totalDuration));
@@ -361,6 +409,11 @@ export class RandomSlotScheduler {
       ) {
         remainingTimeInSlot = padMs - nextBlockRem;
       }
+
+      remainingTimeInSlot = Math.min(
+        remainingTimeInSlot,
+        Math.max(0, budget - totalDuration),
+      );
 
       // We have two options here if there is remaining time in the slot
       // If we want to be "greedy", we can keep attempting to look for items
@@ -502,6 +555,7 @@ export class RandomSlotScheduler {
   private handleFixedDurationSlot(
     currSlot: RandomSlotImpl,
     context: ScheduleContext,
+    budget: number,
   ) {
     if (currSlot.durationSpec.type !== 'fixed') {
       throw new Error(
@@ -509,22 +563,30 @@ export class RandomSlotScheduler {
       );
     }
 
-    const slotDuration = currSlot.durationSpec.durationMs;
+    const slotDuration = Math.min(currSlot.durationSpec.durationMs, budget);
 
     let program = context.getNextProgramForSlot(currSlot);
 
     if (isNull(program) || isFlexProgram(program)) {
+      if (
+        program &&
+        isFlexProgram(program) &&
+        currSlot.durationSpec.durationMs > budget
+      )
+        return;
       context.pushOrExtendFlex(slotDuration);
       return;
     }
 
     // HACK
     if (isRedirectProgram(program)) {
+      if (currSlot.durationSpec.durationMs > budget) return;
       program = { ...program, duration: slotDuration };
     }
 
     // Program longer than we have left? Add it and move on...
     if (program && program.duration > slotDuration) {
+      if (program.duration > budget) return;
       context.pushProgram(program);
       context.advanceIterator(currSlot);
       context.advanceTime(program.duration);
@@ -532,6 +594,9 @@ export class RandomSlotScheduler {
     }
 
     const paddedProgram = this.createPaddedProgram(program);
+    if (paddedProgram.totalDuration > slotDuration && Number.isFinite(budget)) {
+      paddedProgram.padMs = Math.max(0, slotDuration - program.duration);
+    }
 
     maybeAddPrePostFiller(
       currSlot,
@@ -551,6 +616,12 @@ export class RandomSlotScheduler {
         break;
       }
       const nextPadded = this.createPaddedProgram(nextProgram);
+      if (Number.isFinite(budget)) {
+        nextPadded.padMs = Math.min(
+          nextPadded.padMs,
+          slotDuration - totalDuration - nextProgram.duration,
+        );
+      }
       if (!(nextPadded.totalDuration > 0)) {
         throw new Error(
           `Cannot pack program ${'id' in nextProgram ? nextProgram.id : nextProgram.type} into a fixed slot: its duration is ${nextProgram.duration}`,
@@ -578,7 +649,7 @@ export class RandomSlotScheduler {
     // Right now, this means we prioritize pre/post filler, then head/tail.
     // Fallback filler gets added outside of this method after we've packed the
     // slot as much as possible.
-    const remainingTime = currSlot.durationMs! - totalDuration;
+    const remainingTime = slotDuration - totalDuration;
     addHeadAndTailFillerToSlot(
       remainingTime,
       currSlot,
@@ -591,6 +662,7 @@ export class RandomSlotScheduler {
   private handleDynamicDurationSlot(
     currSlot: RandomSlotImpl,
     context: ScheduleContext,
+    budget: number,
   ): NonEmptyArray<PaddedProgram> | undefined {
     if (currSlot.durationSpec.type !== 'dynamic') {
       throw new Error('Illegal state');
@@ -606,10 +678,20 @@ export class RandomSlotScheduler {
 
       if (program) {
         const paddedProgram = this.createPaddedProgram(program);
+        const remaining =
+          budget - sum(map(paddedPrograms, (p) => p.totalDuration));
+        if (program.duration > remaining) break;
+        paddedProgram.padMs = Math.min(
+          paddedProgram.padMs,
+          remaining - program.duration,
+        );
         paddedPrograms.push(paddedProgram);
 
         const preFiller = currSlot.getFillerOfType('pre', {
-          slotDuration: -1,
+          slotDuration: Math.max(
+            0,
+            budget - sum(map(paddedPrograms, (p) => p.totalDuration)),
+          ),
           timeCursor: +context.timeCursor,
         });
 
@@ -618,7 +700,10 @@ export class RandomSlotScheduler {
         }
 
         const postFilter = currSlot.getFillerOfType('post', {
-          slotDuration: -1,
+          slotDuration: Math.max(
+            0,
+            budget - sum(map(paddedPrograms, (p) => p.totalDuration)),
+          ),
           timeCursor: +context.timeCursor,
         });
 
@@ -634,7 +719,10 @@ export class RandomSlotScheduler {
 
     if (isNonEmptyArray(paddedPrograms)) {
       const headFiller = currSlot.getFillerOfType('head', {
-        slotDuration: -1,
+        slotDuration: Math.max(
+          0,
+          budget - sum(map(paddedPrograms, (p) => p.totalDuration)),
+        ),
         timeCursor: +context.timeCursor,
       });
 
@@ -643,7 +731,10 @@ export class RandomSlotScheduler {
       }
 
       const tailFilter = currSlot.getFillerOfType('tail', {
-        slotDuration: -1,
+        slotDuration: Math.max(
+          0,
+          budget - sum(map(paddedPrograms, (p) => p.totalDuration)),
+        ),
         timeCursor: +context.timeCursor,
       });
 

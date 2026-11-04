@@ -981,3 +981,119 @@ describe('random slot padding in a zone with a quarter-hour offset', () => {
     },
   );
 });
+
+describe('random slot time windows', () => {
+  const hour = 60 * 60 * 1000;
+  const start = dayjs('2024-01-01T00:00:00');
+  const makeSchedule = (boundary: 'start' | 'finish'): RandomSlotSchedule => ({
+    type: 'random',
+    flexPreference: 'end',
+    maxDays: 0,
+    padMs: 1,
+    padStyle: 'slot',
+    randomDistribution: 'none',
+    lockWeights: false,
+    slots: [
+      {
+        type: 'redirect',
+        channelId: 'channel',
+        weight: 1,
+        cooldownMs: 0,
+        durationSpec: { type: 'fixed', durationMs: 90 * 60 * 1000 },
+        timeWindow: { startMinute: 120, endMinute: 240, boundary },
+      },
+    ],
+  });
+
+  test.each(['none', 'uniform', 'weighted'] as const)(
+    'waits until a window opens for %s',
+    (randomDistribution) => {
+      const result = new RandomSlotScheduler({
+        ...makeSchedule('finish'),
+        randomDistribution,
+      }).generateSchedule([], [1], 0, start);
+      expect(result.lineup[0]).toMatchObject({
+        type: 'flex',
+        duration: 2 * hour,
+      });
+      expect(result.lineup[1]).toMatchObject({
+        type: 'redirect',
+        duration: 90 * 60 * 1000,
+      });
+      expect(result.lineup[2]).toMatchObject({
+        type: 'flex',
+        duration: 20.5 * hour,
+      });
+    },
+  );
+
+  test('chooses an unrestricted slot while the restricted slot is closed', () => {
+    const schedule = makeSchedule('finish');
+    schedule.slots.push({
+      type: 'redirect',
+      channelId: 'other',
+      weight: 1,
+      cooldownMs: 0,
+      durationSpec: { type: 'fixed', durationMs: hour },
+    });
+    const result = new RandomSlotScheduler(schedule).generateSchedule(
+      [],
+      [1],
+      0,
+      start,
+    );
+    expect(result.lineup[0]).toMatchObject({
+      type: 'redirect',
+      channel: 'other',
+    });
+  });
+
+  test('does not consume a program that cannot finish in the window', () => {
+    const customShowId = randomUUID();
+    const programs: SlotSchedulerProgram[] = [1, 2].map((index) => ({
+      ...createFakeProgramOrm({
+        uuid: `window-${index}`,
+        type: 'movie',
+        duration: 90 * 60 * 1000,
+      }),
+      parentFillerLists: [],
+      parentCustomShows: [{ customShowId, index }],
+      parentSmartCollections: [],
+    }));
+    const schedule = makeSchedule('finish');
+    schedule.maxDays = 1;
+    schedule.slots = [
+      {
+        type: 'custom-show',
+        id: randomUUID(),
+        customShowId,
+        order: 'next',
+        direction: 'asc',
+        weight: 1,
+        cooldownMs: 0,
+        durationSpec: { type: 'dynamic', programCount: 2 },
+        timeWindow: { startMinute: 120, endMinute: 240, boundary: 'finish' },
+      },
+    ];
+    const result = new RandomSlotScheduler(schedule).generateSchedule(
+      programs,
+      [1],
+      0,
+      start,
+    );
+    const ids = result.lineup.flatMap((item) =>
+      item.type === 'custom' || item.type === 'content' ? [item.id] : [],
+    );
+    expect(ids.slice(0, 2)).toEqual(['window-1', 'window-2']);
+  });
+
+  test('allows a slot to run past the end when only the start is restricted', () => {
+    const result = new RandomSlotScheduler(
+      makeSchedule('start'),
+    ).generateSchedule([], [1], 0, start);
+    expect(result.lineup.slice(1, 3)).toMatchObject([
+      { type: 'redirect' },
+      { type: 'redirect' },
+    ]);
+  });
+});
