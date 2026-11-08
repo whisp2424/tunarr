@@ -53,7 +53,10 @@ import Migration1764022266_AddCreditGroupingIndex from './db/Migration1764022266
 import Migration1764022464_AddArtworkIndexes from './db/Migration1764022464_AddArtworkIndexes.ts';
 import Migration1767300603_AddExternalCollections from './db/Migration1767300603_AddExternalCollections.ts';
 import Migration1771271020_FixCustomShowContentKey from './db/Migration1771271020_FixCustomShowContentKey.ts';
-import { makeMigrationFromSqlFile } from './db/util.ts';
+import {
+  makeMigrationFromSqlFile,
+  makeMigrationFromSqlString,
+} from './db/util.ts';
 
 export const LegacyMigrationNameToNewMigrationName = [
   ['Migration20240124115044', '_Legacy_Migration00'],
@@ -257,9 +260,32 @@ export class DirectMigrationProvider implements MigrationProvider {
         migration1792324263: makeMigrationFromSqlFile(
           './sql/0054_unknown_exodus.sql',
         ),
-        migration1793744314: makeMigrationFromSqlFile(
-          './sql/0055_material_doorman.sql',
+        migration1793564678: makeMigrationFromSqlFile(
+          './sql/0055_outstanding_maelstrom.sql',
         ),
+        // Keep the fork's original migration name so existing databases recognize it.
+        migration1793744314: makeMigrationFromSqlFile(
+          './sql/0056_lowly_microbe.sql',
+        ),
+        // A later migration ensures older fork databases also run upstream's
+        // earlier migration and converts fork-only subtitle filters.
+        migration1794118492: makeMigrationFromSqlString(`
+          UPDATE stream_selection_profiles
+          SET rules = (
+            SELECT json_group_array(json(
+              CASE WHEN json_extract(value, '$.subtitleAction.type') = 'by_language'
+                THEN json_remove(
+                  json_set(value, '$.subtitleAction.filterType',
+                    CASE WHEN json_extract(value, '$.subtitleAction.filterType') = 'not_forced'
+                      THEN 'any'
+                      ELSE COALESCE(json_extract(value, '$.subtitleAction.filterOrder[0]'), json_extract(value, '$.subtitleAction.filterType'), 'any')
+                    END),
+                  '$.subtitleAction.filterOrder')
+                ELSE value END
+            )) FROM json_each(stream_selection_profiles.rules)
+          )
+          WHERE json_valid(rules)
+        `),
       } satisfies Record<string, TunarrDatabaseMigration>,
       wrapWithTransaction,
     );

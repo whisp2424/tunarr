@@ -614,13 +614,13 @@ describe('external subtitles end-to-end (fetcher -> stream selector)', () => {
       {
         type: 'by_language',
         languages: ['eng'],
-        filterType: 'not_forced',
+        filterType: 'forced',
         allowImageBased: true,
         allowExternal: true,
       },
       makeLineupItem(program),
     );
-    expect(result.subtitleStream?.forced).toBe(false);
+    expect(result.subtitleStream?.forced).toBe(true);
     expect(result.subtitleStream?.path).toBe(
       `/tmp/test-tunarr/cache/subtitles/${getSubtitleCacheFilePath(
         {
@@ -629,7 +629,7 @@ describe('external subtitles end-to-end (fetcher -> stream selector)', () => {
           externalSourceId: program.mediaSourceId,
           externalSourceType: 'jellyfin',
         },
-        { streamIndex: 4, codec: 'ass' },
+        { streamIndex: 3, codec: 'ass' },
       )}`,
     );
   });

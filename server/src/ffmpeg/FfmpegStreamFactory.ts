@@ -34,7 +34,6 @@ import path from 'node:path';
 import type { DeepReadonly } from 'ts-essentials';
 import { match, P } from 'ts-pattern';
 import type { ContentBackedStreamLineupItem } from '../db/derived_types/StreamLineup.ts';
-import type { IChannelDB } from '../db/interfaces/IChannelDB.ts';
 import { globalOptions } from '../globals.ts';
 import { FeatureFlagService } from '../services/FeatureFlagService.ts';
 import { isImageBasedSubtitle } from '../stream/util.ts';
@@ -53,7 +52,6 @@ import { FfmpegPlaybackParamsCalculator } from './FfmpegPlaybackParamsCalculator
 import { FfmpegProcess } from './FfmpegProcess.ts';
 import { FfmpegTranscodeSession } from './FfmpegTrancodeSession.ts';
 import { StreamSelector } from './StreamSelector.ts';
-import { SubtitleStreamPicker } from './SubtitleStreamPicker.ts';
 import {
   AudioStream,
   EmbeddedSubtitleStream,
@@ -122,7 +120,6 @@ export class FfmpegStreamFactory {
     @injected(KEYS.SettingsDB) private settingsDB: ISettingsDB,
     @injected(KEYS.PipelineBuilderFactory)
     private pipelineBuilderFactory: PipelineBuilderFactory,
-    @injected(KEYS.ChannelDB) private channelDB: IChannelDB,
     @injected(FeatureFlagService)
     private featureFlagService: FeatureFlagService,
     @injected(StreamSelector) private streamSelector: StreamSelector,
@@ -548,7 +545,7 @@ export class FfmpegStreamFactory {
         audioState,
       );
 
-      if (subtitleStream && this.channel.subtitlesEnabled) {
+      if (subtitleStream) {
         this.logger.trace('Using subtitle stream: %O', subtitleStream);
 
         const sidecarEnabled = this.featureFlagService.get(
@@ -659,21 +656,17 @@ export class FfmpegStreamFactory {
     let subtitleSource: Nullable<SubtitlesInputSource> = null;
     let subtitleRendition: SubtitleRenditionInfo | undefined;
 
-    if (
-      isDefined(streamDetails.subtitleDetails) &&
-      this.channel.subtitlesEnabled
-    ) {
-      const subtitlePreferences =
-        await this.channelDB.getChannelSubtitlePreferences(this.channel.uuid);
-
-      const pickedSubtitleStream = await SubtitleStreamPicker.pickSubtitles(
-        subtitlePreferences,
-        lineupItem,
-        streamDetails.subtitleDetails,
-        // In passthrough mode, always prefer text-based subs for sidecar
-        // since burn-in is not available.
-        { preferTextBased: true },
-      );
+    // In passthrough mode, only sidecar (Convert) is available since we're
+    // not re-encoding video for burn-in.
+    if (isDefined(streamDetails.subtitleDetails)) {
+      const pickedSubtitleStream =
+        await this.streamSelector.selectSubtitleStream({
+          channel: this.channel,
+          lineupItem,
+          audioStreams: streamDetails.audioDetails,
+          subtitleStreams: streamDetails.subtitleDetails,
+          hints: { preferTextBased: true },
+        });
 
       if (pickedSubtitleStream) {
         this.logger.trace('Using subtitle stream: %O', pickedSubtitleStream);

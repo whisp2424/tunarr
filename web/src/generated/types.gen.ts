@@ -3010,7 +3010,6 @@ export type GetChannelsResponses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
-        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3019,6 +3018,7 @@ export type GetChannelsResponses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        streamSelectionProfileId: string | null;
     }>;
 };
 
@@ -3079,7 +3079,6 @@ export type CreateChannelV2Data = {
             streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
             transcodeConfigId: string;
             subtitlesEnabled: boolean;
-            streamSelectionProfileId?: string | null;
             useEtvNext?: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3088,6 +3087,7 @@ export type CreateChannelV2Data = {
                 allowExternal: boolean;
                 filter?: 'none' | 'forced' | 'default' | 'any';
             }>;
+            streamSelectionProfileId?: string | null;
         };
     } | {
         type: 'copy';
@@ -3220,7 +3220,6 @@ export type CreateChannelV2Responses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
-        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3229,6 +3228,7 @@ export type CreateChannelV2Responses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        streamSelectionProfileId: string | null;
     };
 };
 
@@ -3382,7 +3382,6 @@ export type GetChannelsByNumberV2Responses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
-        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3391,6 +3390,7 @@ export type GetChannelsByNumberV2Responses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        streamSelectionProfileId: string | null;
     };
 };
 
@@ -3449,7 +3449,6 @@ export type PutApiChannelsByIdData = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         subtitlesEnabled: boolean;
-        streamSelectionProfileId?: string | null;
         useEtvNext?: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3458,6 +3457,7 @@ export type PutApiChannelsByIdData = {
             allowExternal: boolean;
             filter?: 'none' | 'forced' | 'default' | 'any';
         }>;
+        streamSelectionProfileId?: string | null;
     };
     path: {
         id: string;
@@ -3592,7 +3592,6 @@ export type PutApiChannelsByIdResponses = {
             }>;
         }>;
         subtitlesEnabled: boolean;
-        streamSelectionProfileId?: string | null;
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3601,6 +3600,7 @@ export type PutApiChannelsByIdResponses = {
             allowExternal: boolean;
             filter: 'none' | 'forced' | 'default' | 'any';
         }>;
+        streamSelectionProfileId: string | null;
     };
 };
 
@@ -6728,7 +6728,6 @@ export type GetApiChannelsByIdScheduleResponses = {
                         }>;
                     }>;
                     subtitlesEnabled: boolean;
-                    streamSelectionProfileId?: string | null;
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -6737,6 +6736,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                         allowExternal: boolean;
                         filter: 'none' | 'forced' | 'default' | 'any';
                     }>;
+                    streamSelectionProfileId: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -6794,6 +6794,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     syncExternalPlaylistId?: string | null;
                     lastSyncedAt?: number | null;
                     isSyncing: boolean;
+                    streamSelectionProfileId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -6847,6 +6848,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     id: string;
                     name: string;
                     contentCount: number;
+                    streamSelectionProfileId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7111,7 +7113,6 @@ export type GetApiChannelsByIdScheduleResponses = {
                         }>;
                     }>;
                     subtitlesEnabled: boolean;
-                    streamSelectionProfileId?: string | null;
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -7120,6 +7121,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                         allowExternal: boolean;
                         filter: 'none' | 'forced' | 'default' | 'any';
                     }>;
+                    streamSelectionProfileId: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7184,6 +7186,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     syncExternalPlaylistId?: string | null;
                     lastSyncedAt?: number | null;
                     isSyncing: boolean;
+                    streamSelectionProfileId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7244,6 +7247,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     id: string;
                     name: string;
                     contentCount: number;
+                    streamSelectionProfileId?: string | null;
                 } | null;
                 isMissing: boolean;
             } | {
@@ -7423,6 +7427,7 @@ export type GetApiCustomShowsResponses = {
         syncExternalPlaylistId?: string | null;
         lastSyncedAt?: number | null;
         isSyncing: boolean;
+        streamSelectionProfileId?: string | null;
     }>;
 };
 
@@ -7442,11 +7447,23 @@ export type CreateCustomShowData = {
         syncMediaSourceId: string | null;
         syncMediaSourceType: 'plex' | null;
         syncExternalPlaylistId: string | null;
+        streamSelectionProfileId?: string | null;
     };
     path?: never;
     query?: never;
     url: '/api/custom-shows';
 };
+
+export type CreateCustomShowErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        error: string;
+    };
+};
+
+export type CreateCustomShowError = CreateCustomShowErrors[keyof CreateCustomShowErrors];
 
 export type CreateCustomShowResponses = {
     /**
@@ -7481,6 +7498,7 @@ export type CreateCustomShowResponses = {
         syncExternalPlaylistId?: string | null;
         lastSyncedAt?: number | null;
         isSyncing: boolean;
+        streamSelectionProfileId?: string | null;
     };
 };
 
@@ -7562,6 +7580,7 @@ export type GetApiCustomShowsByIdResponses = {
         syncExternalPlaylistId?: string | null;
         lastSyncedAt?: number | null;
         isSyncing: boolean;
+        streamSelectionProfileId?: string | null;
     };
 };
 
@@ -7581,6 +7600,7 @@ export type PutApiCustomShowsByIdData = {
         syncMediaSourceId?: string | null;
         syncMediaSourceType?: 'plex' | null;
         syncExternalPlaylistId?: string | null;
+        streamSelectionProfileId?: string | null;
         enableSync: boolean;
     };
     path: {
@@ -7636,6 +7656,7 @@ export type PutApiCustomShowsByIdResponses = {
         syncExternalPlaylistId?: string | null;
         lastSyncedAt?: number | null;
         isSyncing: boolean;
+        streamSelectionProfileId?: string | null;
     };
 };
 
@@ -7739,6 +7760,7 @@ export type SyncCustomShowResponses = {
         syncExternalPlaylistId?: string | null;
         lastSyncedAt?: number | null;
         isSyncing: boolean;
+        streamSelectionProfileId?: string | null;
     };
 };
 
@@ -7783,6 +7805,7 @@ export type GetApiFillerListsResponses = {
                 program: TerminalProgram;
             };
         }>;
+        streamSelectionProfileId?: string | null;
     }>;
 };
 
@@ -7815,11 +7838,23 @@ export type PostApiFillerListsData = {
                 program: TerminalProgramInput;
             };
         }>;
+        streamSelectionProfileId?: string | null;
     };
     path?: never;
     query?: never;
     url: '/api/filler-lists';
 };
+
+export type PostApiFillerListsErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        error: string;
+    };
+};
+
+export type PostApiFillerListsError = PostApiFillerListsErrors[keyof PostApiFillerListsErrors];
 
 export type PostApiFillerListsResponses = {
     /**
@@ -7903,6 +7938,7 @@ export type GetApiFillerListsByIdResponses = {
                 program: TerminalProgram;
             };
         }>;
+        streamSelectionProfileId?: string | null;
     };
 };
 
@@ -7935,6 +7971,7 @@ export type PutApiFillerListsByIdData = {
                 program: TerminalProgramInput;
             };
         }>;
+        streamSelectionProfileId?: string | null;
     };
     path: {
         id: string;
@@ -7947,8 +7984,16 @@ export type PutApiFillerListsByIdErrors = {
     /**
      * Default Response
      */
+    400: {
+        error: string;
+    };
+    /**
+     * Default Response
+     */
     404: unknown;
 };
+
+export type PutApiFillerListsByIdError = PutApiFillerListsByIdErrors[keyof PutApiFillerListsByIdErrors];
 
 export type PutApiFillerListsByIdResponses = {
     /**
@@ -7982,6 +8027,7 @@ export type PutApiFillerListsByIdResponses = {
                 program: TerminalProgram;
             };
         }>;
+        streamSelectionProfileId?: string | null;
     };
 };
 
@@ -9179,7 +9225,10 @@ export type GetApiMediaLibrariesByLibraryIdProgramsData = {
     path: {
         libraryId: string;
     };
-    query?: never;
+    query?: {
+        limit?: number;
+        offset?: number;
+    };
     url: '/api/media-libraries/{libraryId}/programs';
 };
 
@@ -9187,21 +9236,34 @@ export type GetApiMediaLibrariesByLibraryIdProgramsErrors = {
     /**
      * Default Response
      */
+    400: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
     404: unknown;
 };
+
+export type GetApiMediaLibrariesByLibraryIdProgramsError = GetApiMediaLibrariesByLibraryIdProgramsErrors[keyof GetApiMediaLibrariesByLibraryIdProgramsErrors];
 
 export type GetApiMediaLibrariesByLibraryIdProgramsResponses = {
     /**
      * Default Response
      */
-    200: Array<{
-        type: 'content';
-        duration: number;
-        icon?: string;
-        id: string;
-        startOffsetMs?: number;
-        program: TerminalProgram;
-    }>;
+    200: {
+        total: number;
+        result: Array<{
+            type: 'content';
+            duration: number;
+            icon?: string;
+            id: string;
+            startOffsetMs?: number;
+            program: TerminalProgram;
+        }>;
+        size: number;
+        offset?: number;
+    };
 };
 
 export type GetApiMediaLibrariesByLibraryIdProgramsResponse = GetApiMediaLibrariesByLibraryIdProgramsResponses[keyof GetApiMediaLibrariesByLibraryIdProgramsResponses];
@@ -10678,6 +10740,7 @@ export type GetApiSystemMigrationStateResponses = {
          * Whether the first-run welcome checklist was finished or skipped
          */
         onboardingComplete?: boolean;
+        hasMigratedLegacyStreamSelection: boolean;
     };
 };
 
@@ -10708,6 +10771,7 @@ export type PutApiSystemOnboardingResponses = {
          * Whether the first-run welcome checklist was finished or skipped
          */
         onboardingComplete?: boolean;
+        hasMigratedLegacyStreamSelection: boolean;
     };
 };
 
@@ -12768,17 +12832,33 @@ export type GetApiStreamSelectionProfilesResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
-                filterOrder?: Array<'forced' | 'default'>;
+                filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
+                preferTextBased: boolean;
             } | {
                 type: 'default';
+                preferTextBased: boolean;
             };
         }>;
-        usedByChannels: number;
-        usedByFillers: number;
-        usedByPrograms: number;
+        locked: boolean;
+        usage: {
+            channels: Array<{
+                uuid: string;
+                name: string;
+                number: number;
+            }>;
+            fillerLists: Array<{
+                uuid: string;
+                name: string;
+            }>;
+            customShows: Array<{
+                uuid: string;
+                name: string;
+            }>;
+            programCount: number;
+        };
+        isDefault: boolean;
     }>;
 };
 
@@ -12805,12 +12885,13 @@ export type PostApiStreamSelectionProfilesData = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType?: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
-                filterOrder?: Array<'forced' | 'default'>;
+                filterType?: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased?: boolean;
                 allowExternal?: boolean;
+                preferTextBased?: boolean;
             } | {
                 type: 'default';
+                preferTextBased?: boolean;
             };
         }>;
     };
@@ -12844,14 +12925,16 @@ export type PostApiStreamSelectionProfilesResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
-                filterOrder?: Array<'forced' | 'default'>;
+                filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
+                preferTextBased: boolean;
             } | {
                 type: 'default';
+                preferTextBased: boolean;
             };
         }>;
+        locked: boolean;
     };
 };
 
@@ -12870,8 +12953,16 @@ export type DeleteApiStreamSelectionProfilesByIdErrors = {
     /**
      * Default Response
      */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
     404: unknown;
 };
+
+export type DeleteApiStreamSelectionProfilesByIdError = DeleteApiStreamSelectionProfilesByIdErrors[keyof DeleteApiStreamSelectionProfilesByIdErrors];
 
 export type DeleteApiStreamSelectionProfilesByIdResponses = {
     /**
@@ -12921,14 +13012,16 @@ export type GetApiStreamSelectionProfilesByIdResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
-                filterOrder?: Array<'forced' | 'default'>;
+                filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
+                preferTextBased: boolean;
             } | {
                 type: 'default';
+                preferTextBased: boolean;
             };
         }>;
+        locked: boolean;
     };
 };
 
@@ -12955,12 +13048,13 @@ export type PutApiStreamSelectionProfilesByIdData = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType?: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
-                filterOrder?: Array<'forced' | 'default'>;
+                filterType?: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased?: boolean;
                 allowExternal?: boolean;
+                preferTextBased?: boolean;
             } | {
                 type: 'default';
+                preferTextBased?: boolean;
             };
         }>;
     };
@@ -12975,8 +13069,16 @@ export type PutApiStreamSelectionProfilesByIdErrors = {
     /**
      * Default Response
      */
+    403: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
     404: unknown;
 };
+
+export type PutApiStreamSelectionProfilesByIdError = PutApiStreamSelectionProfilesByIdErrors[keyof PutApiStreamSelectionProfilesByIdErrors];
 
 export type PutApiStreamSelectionProfilesByIdResponses = {
     /**
@@ -13003,18 +13105,192 @@ export type PutApiStreamSelectionProfilesByIdResponses = {
             } | {
                 type: 'by_language';
                 languages: Array<string>;
-                filterType: 'none' | 'forced' | 'default' | 'any' | 'not_forced';
-                filterOrder?: Array<'forced' | 'default'>;
+                filterType: 'none' | 'forced' | 'default' | 'any';
                 allowImageBased: boolean;
                 allowExternal: boolean;
+                preferTextBased: boolean;
             } | {
                 type: 'default';
+                preferTextBased: boolean;
             };
         }>;
+        locked: boolean;
     };
 };
 
 export type PutApiStreamSelectionProfilesByIdResponse = PutApiStreamSelectionProfilesByIdResponses[keyof PutApiStreamSelectionProfilesByIdResponses];
+
+export type GetApiStreamSelectionSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/stream-selection-settings';
+};
+
+export type GetApiStreamSelectionSettingsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        defaultProfileId: string;
+    };
+};
+
+export type GetApiStreamSelectionSettingsResponse = GetApiStreamSelectionSettingsResponses[keyof GetApiStreamSelectionSettingsResponses];
+
+export type PutApiStreamSelectionSettingsData = {
+    body?: {
+        defaultProfileId?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/stream-selection-settings';
+};
+
+export type PutApiStreamSelectionSettingsErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PutApiStreamSelectionSettingsError = PutApiStreamSelectionSettingsErrors[keyof PutApiStreamSelectionSettingsErrors];
+
+export type PutApiStreamSelectionSettingsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        defaultProfileId: string;
+    };
+};
+
+export type PutApiStreamSelectionSettingsResponse = PutApiStreamSelectionSettingsResponses[keyof PutApiStreamSelectionSettingsResponses];
+
+export type PostApiStreamSelectionProfilesPreviewData = {
+    body: {
+        rules: Array<{
+            label?: string;
+            condition: string;
+            audioAction: {
+                type: 'by_language';
+                languages: Array<string>;
+                preferChannels?: 'most' | 'least';
+            } | {
+                type: 'by_title';
+                titleContains: string;
+            } | {
+                type: 'default';
+            };
+            subtitleAction: {
+                type: 'disable';
+            } | {
+                type: 'by_language';
+                languages: Array<string>;
+                filterType?: 'none' | 'forced' | 'default' | 'any';
+                allowImageBased?: boolean;
+                allowExternal?: boolean;
+                preferTextBased?: boolean;
+            } | {
+                type: 'default';
+                preferTextBased?: boolean;
+            };
+        }>;
+        programId: string;
+        channelId?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/stream-selection-profiles/preview';
+};
+
+export type PostApiStreamSelectionProfilesPreviewErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        message: string;
+    };
+    /**
+     * Default Response
+     */
+    502: {
+        message: string;
+    };
+};
+
+export type PostApiStreamSelectionProfilesPreviewError = PostApiStreamSelectionProfilesPreviewErrors[keyof PostApiStreamSelectionProfilesPreviewErrors];
+
+export type PostApiStreamSelectionProfilesPreviewResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        program: {
+            uuid: string;
+            title: string;
+            type: string;
+        };
+        channel?: {
+            uuid: string;
+            name: string;
+            number: number;
+        };
+        audioStreams: Array<{
+            index: number;
+            codec: string;
+            language?: string;
+            channels?: number;
+            title?: string;
+            default?: boolean;
+            selected?: boolean;
+            forced?: boolean;
+            bitrate?: number;
+        }>;
+        subtitleStreams: Array<{
+            index: number;
+            codec: string;
+            language?: string;
+            title?: string;
+            type?: 'embedded' | 'external';
+            default?: boolean;
+            forced?: boolean;
+            sdh?: boolean;
+        }>;
+        rules: Array<{
+            label?: string;
+            condition: string;
+            matched: boolean;
+            error?: string;
+        }>;
+        matchedRuleIndex: number | null;
+        selectedAudioStream?: {
+            index: number;
+            codec: string;
+            language?: string;
+            channels?: number;
+            title?: string;
+            default?: boolean;
+            selected?: boolean;
+            forced?: boolean;
+            bitrate?: number;
+        };
+        selectedSubtitleStream: {
+            index: number;
+            codec: string;
+            language?: string;
+            title?: string;
+            type?: 'embedded' | 'external';
+            default?: boolean;
+            forced?: boolean;
+            sdh?: boolean;
+        } | null;
+    };
+};
+
+export type PostApiStreamSelectionProfilesPreviewResponse = PostApiStreamSelectionProfilesPreviewResponses[keyof PostApiStreamSelectionProfilesPreviewResponses];
 
 export type PostApiStreamSelectionProfilesValidateExpressionData = {
     body: {
@@ -13271,7 +13547,6 @@ export type PostApiTroubleshootResponses = {
                 }>;
             }>;
             subtitlesEnabled: boolean;
-            streamSelectionProfileId?: string | null;
             useEtvNext: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -13280,16 +13555,23 @@ export type PostApiTroubleshootResponses = {
                 allowExternal: boolean;
                 filter: 'none' | 'forced' | 'default' | 'any';
             }>;
+            streamSelectionProfileId: string | null;
         };
         streamSelection?: {
-            profileName?: string;
-            profileSource?: string;
-            rules: Array<{
-                label?: string;
-                condition: string;
+            levels: Array<{
+                level: 'program' | 'custom_show' | 'filler' | 'channel' | 'default' | 'built_in';
+                sourceId?: string;
+                profileId: string;
+                profileName: string;
                 matched: boolean;
-                audioAction?: string;
-                subtitleAction?: string;
+                rules: Array<{
+                    label?: string;
+                    condition: string;
+                    matched: boolean;
+                    applied: boolean;
+                    audioAction?: string;
+                    subtitleAction?: string;
+                }>;
             }>;
             selectedAudioStream?: {
                 index: number;

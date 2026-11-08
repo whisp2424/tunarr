@@ -66,23 +66,13 @@ It consists of two FFMPEG processes, one which performs the per-program transcod
 
 If this mode was "good enough" we probably wouldn't have spent time implementing the other modes! There are a lot of potential issues with this mode; too many to list here.
 
-## Track selection profiles
-
-In the channel's **Streaming** settings, select a track selection profile to control audio and subtitle selection. Create or edit profiles there, then save the channel to assign the selected profile. Profiles can be shared. Saving an edit changes the profile for every channel that uses it.
-
-Rules are evaluated in order. The first condition that evaluates to true selects the audio and subtitle actions. Use `true` to match every program. Language lists accept codes such as `jpn` and `eng`, in preference order. The **Any except forced** subtitle filter accepts tracks without the forced flag, including tracks without the default flag.
-
-Turn on **Enable Subtitles** for the channel to show subtitles. Embedded text tracks must also be extracted before playback. See [Subtitle Extraction](../ffmpeg/index.md#subtitle-extraction).
-
-Profiles apply when Tunarr selects tracks for transcoded content. A program or filler list profile can override a channel profile. Existing sessions may have already selected their tracks. Start a new playback session to apply changes to the current program. Passthrough streams use their existing track behavior, including previously saved legacy subtitle preferences. This fork hides the legacy preference controls but preserves their values and API fields for compatibility.
-
 ## ErsatzTV next backend (experimental)
 
 The modes above all run Tunarr's own FFmpeg pipeline. Tunarr can instead hand a channel to `ersatztv-channel`, a standalone worker from the [ErsatzTV next](https://ersatztv.org/) project that does the scheduling, transcoding and segmenting itself.
 
 !!! warning "Experimental"
 
-    Tunarr pins ErsatzTV next release `v0.2.4` and refuses a bundled worker from any other release. A worker you point at with `TUNARR_ERSATZTV_NEXT_PATH` still runs, but Tunarr logs a warning and streams may fail in ways its schema checks cannot catch.
+    Tunarr pins ErsatzTV next release `v0.2.5` and refuses a bundled worker from any other release. A worker you point at with `TUNARR_ERSATZTV_NEXT_PATH` still runs, but Tunarr logs a warning and streams may fail in ways its schema checks cannot catch.
 
 Turn it on for one channel with **Use ErsatzTV next Backend** on the channel's Streaming tab, or for every channel at once by setting `TUNARR_ERSATZTV_NEXT_ENABLED=true` (see [Environment Variables](../../getting-started/run.md#transcoding)). Start with a single channel; the global switch is there for when you are ready to move the rest. It replaces the pipeline for channels set to **HLS**, **HLS Direct v2** and **MPEG-TS**. HLS alt and HLS Direct keep using Tunarr's pipeline. Channel settings do not change, and the mode you pick in the UI still means what it did.
 

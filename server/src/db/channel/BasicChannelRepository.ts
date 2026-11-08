@@ -78,8 +78,8 @@ function updateRequestToChannel(
     transcodeConfigId: updateReq.transcodeConfigId,
     streamMode: updateReq.streamMode,
     subtitlesEnabled: updateReq.subtitlesEnabled,
-    streamSelectionProfileId: updateReq.streamSelectionProfileId,
     useEtvNext: updateReq.useEtvNext,
+    streamSelectionProfileId: updateReq.streamSelectionProfileId,
   } satisfies Partial<NewChannelOrm>;
 }
 
@@ -106,8 +106,8 @@ function createRequestToChannel(saveReq: SaveableChannel): NewChannelOrm {
     streamMode: saveReq.streamMode,
     transcodeConfigId: saveReq.transcodeConfigId,
     subtitlesEnabled: saveReq.subtitlesEnabled,
-    streamSelectionProfileId: saveReq.streamSelectionProfileId,
     useEtvNext: saveReq.useEtvNext,
+    streamSelectionProfileId: saveReq.streamSelectionProfileId ?? null,
   } satisfies NewChannelOrm;
 }
 

@@ -148,8 +148,6 @@ export default function FfmpegSettingsPage() {
 
   const deleteTranscodeConfig = useMutation({
     ...deleteApiTranscodeConfigsByIdMutation(),
-    // mutationFn: (id: string) =>
-    //   apiClient.deleteTranscodeConfig(undefined, { params: { id } }),
   });
 
   const updateFfmpegSettings: SubmitHandler<

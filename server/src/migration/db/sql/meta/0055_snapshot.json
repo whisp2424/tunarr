@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "46196bd3-95e0-4de8-a33c-70b1820a225b",
+  "id": "adb7b708-19d1-4276-99b8-a50744b2b4dc",
   "prevId": "78f2f8c1-dd7b-4483-88db-0bc88c701df9",
   "tables": {
     "artwork": {
@@ -733,14 +733,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "single_block": {
-          "name": "single_block",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "sync_media_source_id": {
           "name": "sync_media_source_id",
           "type": "text",
@@ -768,6 +760,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "stream_selection_profile_id": {
+          "name": "stream_selection_profile_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -778,6 +777,19 @@
           "tableTo": "media_source",
           "columnsFrom": [
             "sync_media_source_id"
+          ],
+          "columnsTo": [
+            "uuid"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "custom_show_stream_selection_profile_id_stream_selection_profiles_uuid_fk": {
+          "name": "custom_show_stream_selection_profile_id_stream_selection_profiles_uuid_fk",
+          "tableFrom": "custom_show",
+          "tableTo": "stream_selection_profiles",
+          "columnsFrom": [
+            "stream_selection_profile_id"
           ],
           "columnsTo": [
             "uuid"
@@ -3559,6 +3571,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "locked": {
+          "name": "locked",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

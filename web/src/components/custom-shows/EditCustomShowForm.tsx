@@ -52,6 +52,7 @@ import {
   syncCustomShow,
 } from '../../generated/sdk.gen.ts';
 import ChannelLineupList from '../channel_config/ChannelLineupList.tsx';
+import { StreamSelectionProfileSelect } from '../profiles/StreamSelectionProfileSelect.tsx';
 import { CustomShowSortToolsMenu } from './CustomShowSortToolsMenu.tsx';
 
 dayjs.extend(relativeTime);
@@ -63,6 +64,7 @@ type CustomShowForm = {
   syncEnabled: boolean;
   syncMediaSourceId: string;
   syncExternalPlaylistId: string;
+  streamSelectionProfileId: string | null;
 };
 
 type Props = {
@@ -104,6 +106,7 @@ export function EditCustomShowsForm({
       syncEnabled: isSynced,
       syncMediaSourceId: customShow.syncMediaSourceId ?? '',
       syncExternalPlaylistId: customShow.syncExternalPlaylistId ?? '',
+      streamSelectionProfileId: customShow.streamSelectionProfileId ?? null,
     },
   });
 
@@ -119,6 +122,7 @@ export function EditCustomShowsForm({
       syncEnabled: !!customShow.syncMediaSourceId,
       syncMediaSourceId: customShow.syncMediaSourceId ?? undefined,
       syncExternalPlaylistId: customShow.syncExternalPlaylistId ?? undefined,
+      streamSelectionProfileId: customShow.streamSelectionProfileId ?? null,
     });
   }, [customShow, reset]);
 
@@ -157,6 +161,7 @@ export function EditCustomShowsForm({
       const body = {
         name: data.name,
         singleBlock: data.singleBlock,
+        streamSelectionProfileId: data.streamSelectionProfileId,
         // Sync owns a synced show's programs, so leave them out. An explicit
         // list replaces the show's contents.
         ...(data.syncEnabled ? {} : { programs: data.programs }),
@@ -194,6 +199,8 @@ export function EditCustomShowsForm({
         syncMediaSourceId: updatedShow.data.syncMediaSourceId ?? undefined,
         syncExternalPlaylistId:
           updatedShow.data.syncExternalPlaylistId ?? undefined,
+        streamSelectionProfileId:
+          updatedShow.data.streamSelectionProfileId ?? null,
       });
       await queryClient.invalidateQueries({
         queryKey: getApiCustomShowsQueryKey(),
@@ -279,6 +286,18 @@ export function EditCustomShowsForm({
           name="name"
           render={({ field }) => (
             <TextField margin="normal" fullWidth label={t`Name`} {...field} />
+          )}
+        />
+        <Controller
+          control={control}
+          name="streamSelectionProfileId"
+          render={({ field }) => (
+            <StreamSelectionProfileSelect
+              value={field.value}
+              onChange={field.onChange}
+              unassignedLabel={t`None (use the channel's profile)`}
+              helperText={t`Chooses audio and subtitle streams for programs scheduled from this custom show.`}
+            />
           )}
         />
 
