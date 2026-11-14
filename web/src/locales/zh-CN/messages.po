@@ -1984,6 +1984,7 @@ msgid "Encountered an error when emptying trash. Check console logs for details.
 msgstr "清空回收站时出错，详情请查看控制台日志。"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "End time"
 msgstr ""
 
@@ -2405,6 +2406,7 @@ msgid "Finish"
 msgstr "完成"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Finish within range"
 msgstr ""
 
@@ -4175,6 +4177,7 @@ msgid "Restrict Hours..."
 msgstr ""
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Restrict playback to a time range"
 msgstr ""
 
@@ -4495,6 +4498,7 @@ msgid "Show Advanced"
 msgstr "显示高级选项"
 
 #: src/components/custom-shows/EditCustomShowForm.tsx
+#: src/locales/catalogs.test.ts
 msgid "Show consecutive videos as one block in the guide and channel editor"
 msgstr ""
 
@@ -4724,6 +4728,7 @@ msgid "Start"
 msgstr "开始"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Start time"
 msgstr ""
 
@@ -5683,6 +5688,7 @@ msgid "Will force use of a software filters (e.g. scale, pad, etc.) despite hard
 msgstr "即使已设置硬件加速，也强制使用软件滤镜（如缩放、填充等）。"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Window rule"
 msgstr ""
 

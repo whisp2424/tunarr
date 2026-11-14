@@ -1984,6 +1984,7 @@ msgid "Encountered an error when emptying trash. Check console logs for details.
 msgstr "Encountered an error when emptying trash. Check console logs for details."
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "End time"
 msgstr "End time"
 
@@ -2405,6 +2406,7 @@ msgid "Finish"
 msgstr "Finish"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Finish within range"
 msgstr "Finish within range"
 
@@ -4175,6 +4177,7 @@ msgid "Restrict Hours..."
 msgstr "Restrict Hours..."
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Restrict playback to a time range"
 msgstr "Restrict playback to a time range"
 
@@ -4495,6 +4498,7 @@ msgid "Show Advanced"
 msgstr "Show Advanced"
 
 #: src/components/custom-shows/EditCustomShowForm.tsx
+#: src/locales/catalogs.test.ts
 msgid "Show consecutive videos as one block in the guide and channel editor"
 msgstr "Show consecutive videos as one block in the guide and channel editor"
 
@@ -4724,6 +4728,7 @@ msgid "Start"
 msgstr "Start"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Start time"
 msgstr "Start time"
 
@@ -5683,6 +5688,7 @@ msgid "Will force use of a software filters (e.g. scale, pad, etc.) despite hard
 msgstr "Will force use of a software filters (e.g. scale, pad, etc.) despite hardware acceleration settings."
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
 msgid "Window rule"
 msgstr "Window rule"
 
