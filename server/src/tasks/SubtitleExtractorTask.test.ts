@@ -504,6 +504,18 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
     });
   });
 
+  it('requests an ungrouped guide so every custom show airing is prepared', async () => {
+    const harness = makeHarness({ subtitles: [] });
+
+    await run(harness);
+
+    expect(harness.getChannelGuides).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      { groupCustomShowBlocks: false },
+    );
+  });
+
   it('prepares a program when a later airing in a custom show selects subtitles', async () => {
     const harness = makeHarness({
       lineupCustomShowIds: [undefined, CUSTOM_SHOW_ID],

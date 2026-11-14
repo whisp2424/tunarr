@@ -4,7 +4,7 @@ import type {
   StreamSelectionProfileWithUsage,
 } from '@tunarr/types/schemas';
 import { BuiltInStreamSelectionProfileId } from '@tunarr/types/schemas';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { v4 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -140,6 +140,52 @@ describe('built-in profile', () => {
       url: `/api/stream-selection-profiles/${BuiltInStreamSelectionProfileId}`,
     });
     expect(res.statusCode).toBe(403);
+  });
+});
+
+describe('older saved profiles', () => {
+  test('list and detail responses apply defaults to stored subtitle actions', async () => {
+    const uuid = v4();
+    const rules = [
+      {
+        condition: 'true',
+        audioAction: { type: 'default' },
+        subtitleAction: { type: 'default' },
+      },
+      {
+        condition: 'true',
+        audioAction: { type: 'default' },
+        subtitleAction: { type: 'by_language', languages: ['eng'] },
+      },
+    ];
+    const db = container.get<DrizzleDBAccess>(KEYS.DrizzleDB);
+    db.run(
+      sql`INSERT INTO stream_selection_profiles (uuid, name, rules) VALUES (${uuid}, 'Older profile', ${JSON.stringify(rules)})`,
+    );
+
+    const list = await listProfiles();
+    const profile = list.find((item) => item.uuid === uuid);
+    expect(profile?.rules[0]?.subtitleAction).toEqual({
+      type: 'default',
+      preferTextBased: false,
+    });
+    expect(profile?.rules[1]?.subtitleAction).toEqual({
+      type: 'by_language',
+      languages: ['eng'],
+      filterType: 'any',
+      allowImageBased: true,
+      allowExternal: true,
+      preferTextBased: false,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/stream-selection-profiles/${uuid}`,
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json<StreamSelectionProfile>().rules).toEqual(
+      profile?.rules,
+    );
   });
 });
 

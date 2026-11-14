@@ -1226,12 +1226,18 @@ export class TVGuideService {
   async getChannelGuides(
     dateRange: OpenDateTimeRange,
     channelIdFilter?: string[],
+    opts: { groupCustomShowBlocks?: boolean } = {},
   ) {
+    // Custom shows are collapsed into one block for display. Callers that
+    // need every airing individually can opt out of that grouping.
+    const groupCustomShowBlocks = opts.groupCustomShowBlocks ?? true;
     const allChannels = await this.channelDB.getAllChannels();
     await this.get();
-    const blockShows = await this.getBlockShows(
-      Object.values(this.cachedGuide).flatMap(({ programs }) => programs),
-    );
+    const blockShows = groupCustomShowBlocks
+      ? await this.getBlockShows(
+          Object.values(this.cachedGuide).flatMap(({ programs }) => programs),
+        )
+      : new Map<string, string>();
     const channelsById = groupByUniq(allChannels, (c) => c.uuid);
     const startTime = dateRange.from ?? dayjs();
     const endTime = dateRange.to;
@@ -1250,9 +1256,13 @@ export class TVGuideService {
             startTime.toDate(),
             actualEndTime.toDate(),
           );
-          const guideItems = groupCustomShowGuideBlocks(
-            this.cachedGuide[channel.uuid]?.programs ?? [],
-            blockShows,
+          const guideItems = (
+            groupCustomShowBlocks
+              ? groupCustomShowGuideBlocks(
+                  this.cachedGuide[channel.uuid]?.programs ?? [],
+                  blockShows,
+                )
+              : (this.cachedGuide[channel.uuid]?.programs ?? [])
           ).filter(
             (item) =>
               item.startTimeMs < actualEndTime.valueOf() &&

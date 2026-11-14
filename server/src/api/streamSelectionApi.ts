@@ -117,7 +117,7 @@ export const streamSelectionRouter: RouterPluginCallback = (
         (p) => !p.locked,
         (p) => p.name.toLowerCase(),
       ]).map((profile) => ({
-        ...profile,
+        ...StreamSelectionProfileSchema.parse(profile),
         isDefault: profile.uuid === defaultProfileId,
         usage: {
           channels: (channelsByProfile[profile.uuid] ?? []).map(
@@ -163,7 +163,7 @@ export const streamSelectionRouter: RouterPluginCallback = (
         return res.status(404).send();
       }
 
-      return res.send(profile);
+      return res.send(StreamSelectionProfileSchema.parse(profile));
     },
   );
 
@@ -198,7 +198,7 @@ export const streamSelectionRouter: RouterPluginCallback = (
         .where(eq(StreamSelectionProfile.uuid, uuid))
         .limit(1);
 
-      return res.status(201).send(profile);
+      return res.status(201).send(StreamSelectionProfileSchema.parse(profile));
     },
   );
 
@@ -250,7 +250,7 @@ export const streamSelectionRouter: RouterPluginCallback = (
         .where(eq(StreamSelectionProfile.uuid, req.params.id))
         .limit(1);
 
-      return res.send(updated);
+      return res.send(StreamSelectionProfileSchema.parse(updated));
     },
   );
 

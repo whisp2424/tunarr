@@ -158,6 +158,10 @@ export class SubtitleExtractorTask extends Task2<
 
     const nextHourGuide = await this.guideService.getChannelGuides(
       OpenDateTimeRange.create(now, now.add(filter.durationMs))!,
+      undefined,
+      // Every program in a custom show needs its own subtitles prepared;
+      // the grouped block only exposes the first one.
+      { groupCustomShowBlocks: false },
     );
     const mediaSources = await this.mediaSourceDB.getAll();
 

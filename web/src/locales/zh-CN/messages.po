@@ -1983,6 +1983,10 @@ msgstr "启用内嵌字幕提取后，系统会定期扫描即将播出的节目
 msgid "Encountered an error when emptying trash. Check console logs for details."
 msgstr "清空回收站时出错，详情请查看控制台日志。"
 
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "End time"
+msgstr ""
+
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 msgid "End Time"
 msgstr "结束时间"
@@ -2399,6 +2403,10 @@ msgstr ""
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Finish"
 msgstr "完成"
+
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "Finish within range"
+msgstr ""
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "First Episode"
@@ -4166,6 +4174,10 @@ msgstr "限制时段"
 msgid "Restrict Hours..."
 msgstr ""
 
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "Restrict playback to a time range"
+msgstr ""
+
 #: src/components/search/SearchInput.tsx
 msgid "Restrict search fields"
 msgstr "限定搜索字段"
@@ -4482,6 +4494,10 @@ msgstr "剧集"
 msgid "Show Advanced"
 msgstr "显示高级选项"
 
+#: src/components/custom-shows/EditCustomShowForm.tsx
+msgid "Show consecutive videos as one block in the guide and channel editor"
+msgstr ""
+
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Show disabled libraries"
 msgstr ""
@@ -4707,11 +4723,19 @@ msgstr "特别篇"
 msgid "Start"
 msgstr "开始"
 
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "Start time"
+msgstr ""
+
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 #: src/components/slot_scheduler/EditTimeSlotDialogContent.tsx
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 msgid "Start Time"
 msgstr "开始时间"
+
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "Start within range"
+msgstr ""
 
 #: src/components/channels/ChannelNowPlayingCard.tsx
 msgid "Started {startedAgo} - {remainingTime}remaining"
@@ -5657,6 +5681,10 @@ msgstr "即使已设置硬件加速，也强制使用软件编码器。"
 #: src/components/settings/ffmpeg/TranscodeConfigAdvancedOptions.tsx
 msgid "Will force use of a software filters (e.g. scale, pad, etc.) despite hardware acceleration settings."
 msgstr "即使已设置硬件加速，也强制使用软件滤镜（如缩放、填充等）。"
+
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "Window rule"
+msgstr ""
 
 #: src/components/shell/useShellNav.tsx
 msgid "XMLTV"
