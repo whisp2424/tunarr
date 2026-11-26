@@ -2297,6 +2297,11 @@ msgstr ""
 msgid "Encountered an error when emptying trash. Check console logs for details."
 msgstr ""
 
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
+msgid "End time"
+msgstr ""
+
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 msgid "End Time"
 msgstr ""
@@ -2768,6 +2773,11 @@ msgstr ""
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Finish"
+msgstr ""
+
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
+msgid "Finish within range"
 msgstr ""
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -4789,6 +4799,11 @@ msgstr ""
 msgid "Restrict Hours..."
 msgstr ""
 
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
+msgid "Restrict playback to a time range"
+msgstr ""
+
 #: src/components/search/SearchInput.tsx
 msgid "Restrict search fields"
 msgstr ""
@@ -5186,6 +5201,11 @@ msgstr ""
 msgid "Show all channels"
 msgstr ""
 
+#: src/components/custom-shows/EditCustomShowForm.tsx
+#: src/locales/catalogs.test.ts
+msgid "Show consecutive videos as one block in the guide and channel editor"
+msgstr ""
+
 #. placeholder {0}: line.msg
 #: src/components/system/system-logs/LogEntry.tsx
 msgid "Show details for {0}"
@@ -5437,10 +5457,19 @@ msgstr ""
 msgid "Start"
 msgstr ""
 
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
+msgid "Start time"
+msgstr ""
+
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 #: src/components/slot_scheduler/EditTimeSlotDialogContent.tsx
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 msgid "Start Time"
+msgstr ""
+
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+msgid "Start within range"
 msgstr ""
 
 #: src/components/channels/ChannelNowPlayingCard.tsx
@@ -6506,6 +6535,11 @@ msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigAdvancedOptions.tsx
 msgid "Will force use of a software filters (e.g. scale, pad, etc.) despite hardware acceleration settings."
+msgstr ""
+
+#: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
+#: src/locales/catalogs.test.ts
+msgid "Window rule"
 msgstr ""
 
 #: src/components/shell/useShellNav.tsx
