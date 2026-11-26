@@ -185,6 +185,7 @@ function makeHarness(opts: {
   const getFillerPrograms = vi.fn((_id: string) =>
     Promise.resolve([dbProgram]),
   );
+  const getProgramById = vi.fn((_id: string) => Promise.resolve(dbProgram));
 
   const task = new SubtitleExtractorTask(
     {
@@ -215,7 +216,7 @@ function makeHarness(opts: {
     } as never,
     { databaseDirectory: '/tmp/test-tunarr' } as never,
     {
-      getProgramById: () => Promise.resolve(dbProgram),
+      getProgramById,
       setSubtitlePath,
     } as never,
     { downloadSubtitlesIfNecessary } as never,
@@ -243,6 +244,7 @@ function makeHarness(opts: {
     fillerListMayPickSubtitles,
     getStream,
     getFillerPrograms,
+    getProgramById,
     dbProgram,
     setSubtitlePath,
     downloadSubtitlesIfNecessary,
@@ -624,6 +626,49 @@ describe('SubtitleExtractorTask external subtitle top-up', () => {
     await run(harness);
 
     expect(harness.getStream).toHaveBeenCalledOnce();
+  });
+
+  it('yields to the event loop before each program', async () => {
+    const harness = makeHarness({
+      fillerMayPickSubtitles: true,
+      subtitles: [],
+    });
+    harness.getFillerPrograms.mockResolvedValue(
+      ['filler-a', 'filler-b', 'filler-c'].map((uuid) => ({
+        ...harness.dbProgram,
+        uuid,
+      })),
+    );
+
+    let ticks = 0;
+    let stopped = false;
+    const tick = () => {
+      ticks++;
+      if (!stopped) {
+        setImmediate(tick);
+      }
+    };
+    setImmediate(tick);
+
+    const ticksAtEachProgram: number[] = [];
+    harness.getProgramById.mockImplementation(() => {
+      ticksAtEachProgram.push(ticks);
+      return Promise.resolve(harness.dbProgram);
+    });
+
+    try {
+      await run(harness);
+    } finally {
+      stopped = true;
+    }
+
+    // One guide program and three filler programs.
+    expect(ticksAtEachProgram).toHaveLength(4);
+    expect(ticksAtEachProgram[0]).toBeGreaterThan(0);
+    // Strictly increasing: a macrotask ran before every program.
+    expect(ticksAtEachProgram).toEqual(
+      [...new Set(ticksAtEachProgram)].sort((a, b) => a - b),
+    );
   });
 });
 

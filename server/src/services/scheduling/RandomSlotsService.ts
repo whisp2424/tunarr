@@ -28,8 +28,15 @@ import { isNonEmptyArray, zipWithIndex } from '../../util/index.ts';
 import { type IterationState } from './ProgramIterator.ts';
 import { RandomSlotImpl } from './RandomSlotImpl.ts';
 import { randomSlotTimeWindow } from './randomSlotTimeWindow.ts';
+import type { SlotCheckpoint } from './slotCheckpoints.ts';
+import { SlotCheckpointRecorder } from './slotCheckpoints.ts';
+import type {
+  SlotCycleOptions,
+  SlotIteratorState,
+} from './slotIteratorState.ts';
 import type {
   PaddedProgram,
+  SlotIteratorResult,
   SlotSchedulerProgram,
 } from './slotSchedulerUtil.js';
 import {
@@ -55,6 +62,11 @@ dayjs.extend(relativeTime);
 dayjs.extend(utc);
 dayjs.extend(dayjsMod);
 
+export type RandomSlotCycleResult = SlotScheduleResult & {
+  iteratorState: SlotIteratorState;
+  checkpoints?: SlotCheckpoint[];
+};
+
 class ScheduleContext {
   #startTime: dayjs.Dayjs;
   #timeCursor: dayjs.Dayjs;
@@ -66,6 +78,7 @@ class ScheduleContext {
   #random: Random;
   #engine: MersenneTwister19937;
   #unschedulablePrograms: SlotSchedulerProgram[];
+  #snapshotIterators: SlotIteratorResult['snapshotIterators'];
 
   constructor(
     schedule: RandomSlotSchedule,
@@ -73,6 +86,8 @@ class ScheduleContext {
     startTime: dayjs.Dayjs,
     seed: number[] = createEntropy(),
     discardCount: number = 0,
+    iteratorState?: SlotIteratorState,
+    stableShuffle?: boolean,
   ) {
     this.#seed = seed;
     this.#engine = MersenneTwister19937.seedWithArray(this.#seed).discard(
@@ -90,11 +105,14 @@ class ScheduleContext {
       programMap,
       this.#random,
     );
-    const { iterators: slotIterators } = createSlotIterators(
+    const { iterators: slotIterators, snapshotIterators } = createSlotIterators(
       schedule.slots,
       programMap,
       this.#random,
+      iteratorState,
+      { stable: stableShuffle },
     );
+    this.#snapshotIterators = snapshotIterators;
     this.#startTime = this.#timeCursor = startTime;
     const seenLinkGroups = new Set<string>();
     this.#sortedSlots = map(
@@ -108,6 +126,16 @@ class ScheduleContext {
           getFillerIteratorsForSlot(slot, fillerIterators, seenLinkGroups),
         ),
     );
+
+    const nextSlotIndex = iteratorState?.nextSlotIndex ?? 0;
+    if (nextSlotIndex < this.#sortedSlots.length) {
+      this.#currentSlotIndex = nextSlotIndex;
+    }
+    for (const [index, timeMs] of Object.entries(
+      iteratorState?.slotLastPlayedMs ?? {},
+    )) {
+      this.#slotLastPlayed.set(Number(index), timeMs);
+    }
   }
 
   get sortedSlots() {
@@ -195,12 +223,25 @@ class ScheduleContext {
     return this.#unschedulablePrograms;
   }
 
-  get result(): SlotScheduleResult {
+  get discardCount(): number {
+    return this.#engine.getUseCount();
+  }
+
+  get iteratorState(): SlotIteratorState {
+    return {
+      ...this.#snapshotIterators(),
+      nextSlotIndex: this.#currentSlotIndex,
+      slotLastPlayedMs: Object.fromEntries(this.#slotLastPlayed),
+    };
+  }
+
+  get result(): RandomSlotCycleResult {
     return {
       lineup: this.lineup,
       seed: this.#seed,
       startTime: +this.#startTime,
-      discardCount: this.#engine.getUseCount(),
+      discardCount: this.discardCount,
+      iteratorState: this.iteratorState,
     };
   }
 }
@@ -223,7 +264,8 @@ export class RandomSlotScheduler {
     seed: number[] = createEntropy(),
     discardCount: number = 0,
     startTime: dayjs.Dayjs = dayjs.tz(),
-  ): SlotScheduleResult {
+    cycle: SlotCycleOptions = {},
+  ): RandomSlotCycleResult {
     this.validateSchedule();
 
     const context = new ScheduleContext(
@@ -232,13 +274,15 @@ export class RandomSlotScheduler {
       startTime,
       seed,
       discardCount,
+      cycle.iteratorState,
+      cycle.stableShuffle,
     );
 
     const { maxDays, padMs, padStyle, flexPreference, randomDistribution } =
       this.schedule;
 
     const t0 = startTime;
-    const upperLimit = t0.add(maxDays + 1, 'day');
+    const upperLimit = cycle.endTime ?? t0.add(maxDays + 1, 'day');
 
     if (context.unschedulablePrograms.length > 0) {
       this.logger.warn(
@@ -255,12 +299,25 @@ export class RandomSlotScheduler {
     let emptySlotCursorMs = +context.timeCursor;
     const retryTimes = new Map<number, dayjs.Dayjs>();
 
+    // The first pass at each time starts from state the scheduler can be
+    // restarted with. Later passes at the same time also carry the slots that
+    // just came up empty, which a restart would not know about.
+    const checkpoints = cycle.checkpoints
+      ? new SlotCheckpointRecorder(cycle.iteratorState)
+      : undefined;
+
     while (context.timeCursor.isBefore(upperLimit)) {
       if (+context.timeCursor !== emptySlotCursorMs) {
         emptySlotIndexes.clear();
         retryTimes.clear();
         emptySlotCursorMs = +context.timeCursor;
       }
+
+      checkpoints?.record(
+        +context.timeCursor - +t0,
+        context.discardCount,
+        context.iteratorState,
+      );
 
       // Pad to the local wall clock.
       const m = +context.timeCursor.mod(padMs, true);
@@ -448,9 +505,16 @@ export class RandomSlotScheduler {
         }
       }
 
+      // A cycle places every program the slot collected, because their
+      // iterators already advanced and the end state would otherwise count
+      // dropped programs as played. The loop condition then ends the cycle.
+      const dropCrossing = cycle.endTime === undefined;
       let done = false;
       for (const { program, padMs, totalDuration, filler } of finalPrograms) {
-        if (+context.timeCursor + program.duration > +upperLimit) {
+        if (
+          dropCrossing &&
+          +context.timeCursor + program.duration > +upperLimit
+        ) {
           done = true;
           break;
         }
@@ -462,7 +526,7 @@ export class RandomSlotScheduler {
         context.pushProgram(filler.tail);
         context.advanceTime(totalDuration - padMs);
 
-        if (+context.timeCursor + padMs > +upperLimit) {
+        if (dropCrossing && +context.timeCursor + padMs > +upperLimit) {
           done = true;
           break;
         }
@@ -501,7 +565,10 @@ export class RandomSlotScheduler {
       }
     }
 
-    return context.result;
+    const result = context.result;
+    return checkpoints
+      ? { ...result, checkpoints: checkpoints.checkpoints }
+      : result;
   }
 
   private validateSchedule() {

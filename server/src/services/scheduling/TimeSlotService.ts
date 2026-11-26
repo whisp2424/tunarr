@@ -48,6 +48,12 @@ import {
   getFillerIteratorsForSlot,
   maybeAddPrePostFiller,
 } from './slotSchedulerUtil.js';
+import type { SlotCheckpoint } from './slotCheckpoints.ts';
+import { SlotCheckpointRecorder } from './slotCheckpoints.ts';
+import type {
+  SlotCycleOptions,
+  SlotIteratorState,
+} from './slotIteratorState.ts';
 import { TimeSlotImpl } from './TimeSlotImpl.js';
 
 dayjs.extend(duration);
@@ -90,6 +96,11 @@ function pushOrExtendFlex(
   return flexDurationMs;
 }
 
+export type TimeSlotCycleResult = TimeSlotScheduleResult & {
+  iteratorState: SlotIteratorState;
+  checkpoints?: SlotCheckpoint[];
+};
+
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function scheduleTimeSlots(
   schedule: TimeSlotSchedule,
@@ -97,7 +108,8 @@ export async function scheduleTimeSlots(
   seed: number[] = createEntropy(),
   discardCount: number = 0,
   startTime: dayjs.Dayjs = dayjs.tz(),
-): Promise<TimeSlotScheduleResult> {
+  cycle: SlotCycleOptions = {},
+): Promise<TimeSlotCycleResult> {
   const mt = MersenneTwister19937.seedWithArray(seed).discard(discardCount);
   const random = new Random(mt);
 
@@ -125,8 +137,17 @@ export async function scheduleTimeSlots(
     programMap,
     random,
   );
-  const { iterators: slotIterators, resetPeriodCallbacks } =
-    createSlotIterators(schedule.slots, programMap, random);
+  const {
+    iterators: slotIterators,
+    resetPeriodCallbacks,
+    snapshotIterators,
+  } = createSlotIterators(
+    schedule.slots,
+    programMap,
+    random,
+    cycle.iteratorState,
+    { stable: cycle.stableShuffle },
+  );
 
   const periodDuration = dayjs.duration(1, schedule.period);
   const periodMs = dayjs.duration(1, schedule.period).asMilliseconds();
@@ -171,14 +192,19 @@ export async function scheduleTimeSlots(
 
   let t0 = startTime;
   const startOfYear = t0.startOf('year'); // Used to detect DST shifts.
-  const startedinDst = startTime.utcOffset() !== startOfYear.utcOffset();
   const startOfCurrentPeriod = t0.startOf(schedule.period);
 
-  if (schedule.startTomorrow) {
+  // Slot offsets count from the period start, so the DST baseline is the
+  // period start too. A build that starts mid-period, after a DST change,
+  // would otherwise place every slot an hour off for the rest of the period.
+  const startedinDst =
+    startOfCurrentPeriod.utcOffset() !== startOfYear.utcOffset();
+
+  if (schedule.startTomorrow && cycle.endTime === undefined) {
     t0 = t0.add(1, 'day');
   }
 
-  const upperLimit = t0.add(schedule.maxDays + 1, 'day');
+  const upperLimit = cycle.endTime ?? t0.add(schedule.maxDays + 1, 'day');
 
   let timeCursor = t0;
 
@@ -196,9 +222,24 @@ export async function scheduleTimeSlots(
     timeCursor = timeCursor.add(program.duration);
   };
 
-  let lastPeriodIndex = -1;
+  // Each pass of the loop starts from state the scheduler can be restarted
+  // with: the clock, the RNG position and the iterators.
+  const checkpoints = cycle.checkpoints
+    ? new SlotCheckpointRecorder(cycle.iteratorState)
+    : undefined;
+
+  // A build that resumes mid-period keeps the restored rerun recordings. One
+  // that starts on a period boundary starts the period over, as a build
+  // running through that boundary would.
+  let lastPeriodIndex: number | undefined;
   let dstActive = timeCursor.utcOffset() !== startOfYear.utcOffset();
   while (timeCursor.isBefore(upperLimit)) {
+    checkpoints?.record(
+      +timeCursor - +t0,
+      mt.getUseCount(),
+      snapshotIterators(),
+    );
+
     const inDst = timeCursor.utcOffset() !== startOfYear.utcOffset();
     if (!dstActive && inDst) {
       // We just entered
@@ -217,10 +258,14 @@ export async function scheduleTimeSlots(
     let currOffset = totalOffsetMs % periodMs;
 
     const currentPeriodIndex = Math.floor(totalOffsetMs / periodMs);
-    if (currentPeriodIndex !== lastPeriodIndex) {
+    const periodChanged =
+      lastPeriodIndex === undefined
+        ? currOffset === 0
+        : currentPeriodIndex !== lastPeriodIndex;
+    if (periodChanged) {
       for (const cb of resetPeriodCallbacks) cb();
-      lastPeriodIndex = currentPeriodIndex;
     }
+    lastPeriodIndex = currentPeriodIndex;
 
     let currSlot: TimeSlotImpl<CondensedChannelProgram> | null = null;
     let lateMillis: number | null = null;
@@ -480,5 +525,7 @@ export async function scheduleTimeSlots(
     startTime: +t0,
     seed,
     discardCount: mt.getUseCount(),
+    iteratorState: snapshotIterators(),
+    ...(checkpoints ? { checkpoints: checkpoints.checkpoints } : {}),
   };
 }

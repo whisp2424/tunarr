@@ -262,8 +262,8 @@ export function EditCustomShowsForm({
     }
     navigate({
       to: isNew
-        ? '/library/custom-shows/new/programming'
-        : `/library/custom-shows/$showId/programming`,
+        ? '/library/playlists/new/programming'
+        : `/library/playlists/$showId/programming`,
       params: { showId: customShow?.id },
     }).catch(console.warn);
   };
@@ -296,7 +296,7 @@ export function EditCustomShowsForm({
               value={field.value}
               onChange={field.onChange}
               unassignedLabel={t`None (use the channel's profile)`}
-              helperText={t`Chooses audio and subtitle streams for programs scheduled from this custom show.`}
+              helperText={t`Chooses audio and subtitle streams for programs scheduled from this playlist.`}
             />
           )}
         />
@@ -443,7 +443,7 @@ export function EditCustomShowsForm({
           {isSynced && !isNew && (
             <Alert severity="info" sx={{ mb: 2 }} icon={<Sync />}>
               <Trans>
-                This custom show is synced with an external playlist. Content is
+                This playlist is synced with a media server playlist. Content is
                 updated automatically and cannot be edited manually.
               </Trans>
             </Alert>
@@ -479,7 +479,7 @@ export function EditCustomShowsForm({
                     </Tooltip>
                   )}
                   <Tooltip
-                    title={t`Add programming to custom show`}
+                    title={t`Add programming to playlist`}
                     placement="top"
                   >
                     <Button

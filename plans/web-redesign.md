@@ -1,6 +1,6 @@
 # Web Redesign on a Tunarr Component Layer
 
-> **Status (11/01/2026):** Phases 0 and 2 are merged. Phase 0 shipped in PR #2348 (tokens and theme), PR #2349 (story diff script) and PR #2359 (`Segmented`, `KeyHint`, `EmptyState`, with `ToggleButtonGroup` banned). Phase 2 (`AppShell`) shipped in PR #2356. `plans/mrt-replacement.md` Phase 0 (`DataTable`) merged in PR #2350 on 10/25/2026, so Phase 3 is unblocked but not started. Next is `CollectionView` with `/channels` as the pilot. MRT replacement Phase 1 runs alongside it. The forms/settings mock is still due and gates Phase 4.
+> **Status (11/24/2026):** Partial. Phases 0 and 2 merged. Phase 3's pages all merged: `/channels` (#2414, #2421), the custom shows, filler lists, and smart collections pages (#2507), sources (#2516), tasks (#2519), logs (#2524), and trash (#2523). The trash program grid moves to Phase 5 with `MediaGrid`. `plans/mrt-replacement.md` Phase 1 merged in #2411. Phases 4–9 are not started, and the forms/settings mock still gates Phase 4.
 
 ## Why
 
@@ -47,21 +47,21 @@ Each layer has stories before the layer above uses it.
 | Layer      | Examples                                                                                         | Where                        |
 | ---------- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
 | Tokens     | colors, fonts, radii, density sizes                                                              | `themeTokens.ts`, `theme.ts` |
-| Primitives | `StatusPill`, `MonoText`, `KeyHint`, `PageHeader`, `Segmented`, `EmptyState`                     | `components/ui/`             |
+| Primitives | `StatusPill`, `MonoText`, `KeyHint`, `PageHeader`, `Segmented`, `FilterChip`, `EmptyState`       | `components/ui/`             |
 | Patterns   | `AppShell`, `CollectionView`, `FormSection`, `MediaGrid`, `LineupEditor`, `Inspector`, `SaveBar` | `components/ui/patterns/`    |
 | Pages      | route components assembled from patterns                                                         | `routes/`, `pages/`          |
 
 ## Page types
 
-| Type            | Screens | Routes                                                                                                                                                                           |
-| --------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| App shell       | all     | top nav, ⌘K search, color mode, Settings                                                                                                                                         |
-| Collection      | ~9      | `/channels`, `/library/custom-shows`, `/library/fillers`, `/library/smart_collections`, `/library/trash`, `/media_sources`, `/settings/sources`, `/system/tasks`, `/system/logs` |
-| Form / settings | ~14     | channel new/edit, custom show and filler new/edit, `/settings/*` tabs, `/settings/ffmpeg/$configId`                                                                              |
-| Lineup editor   | 3       | `/channels/$id/programming`, custom show and filler `programming`                                                                                                                |
-| Slot editors    | 2       | `/channels/$id/programming/slot-editor`, `time-slot-editor`                                                                                                                      |
-| Media browser   | ~4      | `programming/add`, `/media_sources/$id/libraries/$libraryId`, `/search`, `/media/$programType/$programId`                                                                        |
-| One-offs        | ~6      | `/guide`, `/channels/$id/watch`, `/welcome`, `/system`, `/system/debug`, `/system/troubleshoot`                                                                                  |
+| Type            | Screens | Routes                                                                                                                                                                                                    |
+| --------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App shell       | all     | top nav, ⌘K search, color mode, Settings                                                                                                                                                                  |
+| Collection      | ~9      | `/channels`, `/library/custom-shows`, `/library/fillers`, `/library/smart_collections`, `/library/trash`, `/media_sources`, `/settings/sources`, `/system/tasks`, `/system/logs` (table at every density) |
+| Form / settings | ~14     | channel new/edit, custom show and filler new/edit, `/settings/*` tabs, `/settings/ffmpeg/$configId`                                                                                                       |
+| Lineup editor   | 3       | `/channels/$id/programming`, custom show and filler `programming`                                                                                                                                         |
+| Slot editors    | 2       | `/channels/$id/programming/slot-editor`, `time-slot-editor`                                                                                                                                               |
+| Media browser   | ~4      | `programming/add`, `/media_sources/$id/libraries/$libraryId`, `/search`, `/media/$programType/$programId`                                                                                                 |
+| One-offs        | ~6      | `/guide`, `/channels/$id/watch`, `/welcome`, `/system`, `/system/debug`, `/system/troubleshoot`                                                                                                           |
 
 ## Storybook
 
@@ -97,7 +97,7 @@ Each phase is one or more PRs against `main`. Each PR leaves the app working.
 - Density reaches the MRT tables through `useStoreBackedTableSettings`. Done on branch, and temporary until `DataTable` replaces MRT.
 - Storybook with the provider decorator and the scheme and density toolbar.
 - First primitives with stories: `StatusPill`, `MonoText`, `PageHeader`.
-- Then `Segmented` (bans `ToggleButtonGroup` and `ToggleButton`), `KeyHint` and `EmptyState`. `EmptyState` has no mock yet, so its stories are the reference. Multi-select toggle groups (`TrashPage`) stay on the legacy list until a multi-select primitive exists.
+- Then `Segmented` (bans `ToggleButtonGroup` and `ToggleButton`), `KeyHint` and `EmptyState`. `EmptyState` has no mock yet, so its stories are the reference. Multi-select toggle groups use `FilterChip`, the multi-select primitive. `TrashPage` left the legacy list by switching to it.
 - The Vitest add-on, the a11y add-on (warnings only) and the story diff script.
 
 ### Phase 1. Mocks for the remaining page types
@@ -137,6 +137,93 @@ Built on `feat/app-shell` (10/19/2026):
 - `CollectionView` switches between cards (Comfortable) and a table (Dense). It holds the bulk-selection bar and keyboard hints.
 - Pilot is `/channels`, which also needs a "now playing" field per channel. `GET /api/channels/all/lineups?from=<now>&to=<now>` supplies it in one call. It reads the in-memory guide cache (`TvGuideService.getChannelLineup`), so it needs no new endpoint.
 - Then the other collection routes.
+
+Built on `feat/collection-view` (11/01/2026):
+
+- `CollectionView` lives in `web/src/components/ui/patterns/CollectionView/`. It takes `items`, `renderCard` and a `table` element, and picks one from the density. `collectionLayout()` holds the rule, and phones always get cards.
+- `/channels` splits into `ChannelsView` (props only, with stories) and `ChannelsPage` (data). Both live under `web/src/components/channels/` and `web/src/pages/channels/`.
+- `ChannelCard` shows the now-playing program's artwork. It falls back to the channel icon when the art is missing or fails to load.
+- `useChannelsNowPlaying` reads `GET /api/channels/all/lineups` with `from` and `to` set to the same instant. It refetches when the first current program ends and recomputes progress every 30 seconds. The guide returns no artwork, so `programArtworkUrl` builds the URL from the program and its show. `ChannelNowPlayingCard` uses the same helper.
+- The pilot keeps today's behavior. Row selection, the bulk bar, J/K/X/Enter navigation and the All/Streaming/Stealth filter come in the next PR (decided 11/01/2026).
+- The mock's phone frame for collections was never drawn. Phones use the Comfortable card grid in one column.
+- The table parity spec runs Channels at dense density, because Comfortable shows cards.
+
+Built on `feat/channels-bulk`, stacked on `feat/collection-view` (11/02/2026):
+
+- `DataTable` registers row selection. `selectColumn()` adds row checkboxes and a page checkbox. Its clicks never reach the row.
+- `DataTable`'s `keyboardNavigation` prop turns on J/K to move, X to select and Enter to open. The keys work from the page body or inside the table, never while typing in a field.
+- `SelectionBar` in `CollectionView/` shows the count, the bulk actions, Clear and the key hints. It always shows in the table layout, so the hints stay visible.
+- The All/Streaming/Stealth filter applies to cards and table. "Streaming" means someone is watching, the same rule as the header count. Changing the filter clears the selection.
+- Selection and keyboard navigation exist only in the table. The card mock has no checkboxes.
+- Bulk Export M3U links to `/api/channels.m3u?channels=1,4,7`. That param builds an uncached playlist of just those channels. Selected stealth channels are included when basic auth is off or the request carries valid credentials, because the route itself is public. The `download` flag makes the server send the playlist as an attachment.
+- Bulk duplicate and delete run one channel at a time and report failures in one toast.
+
+Built on `feat/custom-shows-collection` (11/09/2026):
+
+- `/library/custom-shows` splits into `CustomShowsView` (props only, with stories) in `web/src/components/custom-shows/` and `CustomShowsPage` (data).
+- The list endpoint returns no artwork, so `CustomShowCard` has no hero image. It shows the name, program count, total runtime, a sync pill for linked playlists, Edit and Delete.
+- The table gains a Duration column, so both layouts show the same facts.
+- The view owns the delete confirmation. The page only runs the mutation.
+- No bulk selection yet. Bulk delete is the only candidate action, so whether it earns a follow-up PR is still open.
+- The page header drops the explainer paragraph. The empty state carries it instead.
+- The `# Programs` range filter sits in the page header (`HeaderRangeFilter`), so it filters the cards and the table alike. Its value lives in the table's filter state, so it survives a switch between densities. Filters are not saved across reloads. The column sets `filterInHeader`, which keeps `DataTable` from drawing a second copy in its filter row. The Name filter and search controls stay in the table, but the cards honor their values too, because they show the table's filtered rows. The header filter hides with the `# Programs` column unless it holds a value. `/library/fillers` uses the same header filter.
+- User-facing text says "Playlists" and links go to `/library/playlists`, both from the rename in PR #2513. Code names stay `CustomShow*`.
+
+Built on `feat/fillers-collection` and merged into `feat/custom-shows-collection` as PR #2511 (11/09/2026):
+
+- `/library/fillers` splits the same way, into `FillerListsView` and `FillerListCard` in `web/src/components/fillers/` and `FillerListsPage` (data).
+- A filler list has only a name and a program count, so its card shows those plus Edit, Assign and Delete.
+- `AssignFillerToChannelsDialog` fetches channels itself, so it stays in the page. The view reports which list to assign.
+
+Built on `feat/smart-collections-collection`, stacked on `feat/fillers-collection` (11/09/2026):
+
+- `/library/smart_collections` splits into `SmartCollectionsView` and `SmartCollectionCard` in `web/src/components/smart_collections/` and `SmartCollectionsPage` (data). `SmartCollectionsTable` is gone.
+- A smart collection has no item count, so its card shows the name and its query. Keywords show in quotes and the filter in mono. The table gains a Query column to match.
+- `EditSmartCollectionDialog` fetches the collection itself, so it stays in the page.
+- Rows now open the collection on click, like every other collection page. The old table only opened it from the View button.
+- The e2e table spec runs CustomShows, FillerLists and SmartCollections at dense density, because Comfortable shows cards. The saved-MRT-settings test stores dense density for the same reason.
+
+Built on `feat/media-sources-collection`, stacked on `feat/smart-collections-collection` (11/09/2026):
+
+- `/settings/sources` splits into `MediaSourcesView` and `MediaSourceCard` in `web/src/components/settings/media_source/` and `MediaSourceSettingsPage` (data). The page keeps the four edit dialogs and the libraries dialog.
+- The card shows the type logo, name, type, health pill, enabled-library chip and location. Remote sources add Refresh libraries and Edit libraries next to Edit and Delete.
+- The page fetches every source's health with `useQueries` and hands the view a map, so the view needs no API. Both layouts show health as a `StatusPill` (Healthy, Unreachable, Checking). `MediaSourceHealthyTableCell` is gone.
+- Local sources have no URL, so both layouts show the first folder and a "+N more" count. The table's URL column becomes Location.
+- `AddMediaSourceButton` owns its own dialogs and Plex login, so the view takes it as an `addButton` slot. It shows in the header and the empty state.
+- The page sits inside `SettingsLayout`, which keeps its Settings heading and `Paper` until Phase 4. `PageHeader` takes the place of the old in-paper heading.
+- Rows open the source's browse page at `/media_sources/$mediaSourceId`, and the card title links there. Nothing on this page opened it before (decided 11/09/2026).
+- The e2e table spec runs MediaSourceSettings at dense density too.
+- `/library/trash` is skipped here. It renders `LibraryProgramGrid`, a grid of programs rather than a list of entities, so it gets its own rebuild below.
+
+Built on `feat/tasks-collection`, stacked on `feat/media-sources-collection` (11/09/2026):
+
+- `/system/tasks` splits into `TasksView` and `TaskCard` in `web/src/components/system/tasks/` and `TaskSettingsPage` (data). The page's separate phone list is gone, because `CollectionView` gives phones cards.
+- The card shows the name, a status pill, the description, the last and next run, and Run now. Names are single CamelCase words, so the title offers a line break at each capital.
+- The status pill reads Running, Scheduled or Manual only, from the scheduler's `running` flag and whether the task has a schedule. The table gains a Status column to match.
+- Run now is a button in both layouts. The table's one-item Actions menu is gone.
+- The table now saves its sort, hidden columns and page size like the other collection pages. The e2e table spec runs Tasks at dense density with persistence on, and waits on `ScanLibrariesTask`, which stays on the first page in every order the spec uses.
+- The page sits inside `SystemLayout`, which keeps its System heading and `Paper` like `SettingsLayout`.
+- Tasks have no detail page, so rows don't open anything.
+
+Built on `feat/logs-collection`, stacked on `feat/tasks-collection` (11/11/2026):
+
+- `/system/logs` is not a card page. Log lines have no identity or actions, people scan them down a time column, and new lines arrive at the top. The table shows at every density, and only phones get a list of entries. Mocks of cards, this table and a log console were compared on a canvas, and the user chose the table plus the console's pause toggle (11/11/2026). Canvas: https://claude.ai/artifact/44KbwQ3JL6tLGiyaFqV5JR (private)
+- `SystemLogsView`, `LogEntry` (phone), `LogDetail` and `LogLevelPill` live in `web/src/components/system/system-logs/`. `web/.gitignore` ignores every folder named `logs`, so the folder can't use that name. `SystemLogsPage` keeps the `EventSource`, the 1,000-line buffer and the pause snapshot.
+- Rows expand to show the line's `err` (type, message, stack) and its other fields, with a Copy raw line button. The old page dropped all of these.
+- `DataTable` gains `renderDetail`, which draws a full-width row under each expanded row. `expandColumn()` adds the chevron. Row expanding is registered in `tunarrFeatures`, so any table can use it with `getRowCanExpand`.
+- Pause freezes the lines on screen while the stream keeps filling the buffer. The header shows Live, or Paused with a count of new lines. Resume shows everything.
+- `CollectionView` gains `equalRowHeights`, so an opened phone entry doesn't stretch the others. Its phone column is now `minmax(0, 1fr)`, because unbreakable text in a card widened the page past the screen.
+- The e2e table spec gains a phone-width check for every ported page. `TranscodeConfigs` skips it, because its table already overflows by 275px at 390px.
+
+Built on `feat/trash-page` in PR #2523 (11/09/2026):
+
+- Trash lists programs, not entities, so it doesn't use `CollectionView`. Its grid is `LibraryProgramGrid`, shared with search and the library pages, and Phase 5 (`MediaGrid`) rebuilds it. This PR rebuilds only the page around the grid.
+- `/library/trash` splits into `TrashView` (props only, with stories) in `web/src/components/library/` and `TrashPage` (data). The view takes the grid as `children`, so its stories use a placeholder box.
+- `PageHeader` holds the Empty Trash button. The explainer paragraph shrinks to the header subtitle, and the breadcrumbs are gone.
+- The type filter stays multi-select. It uses `FilterChip` from `components/ui/`, plus an All chip that clears the selection. `TrashPage` is off the `ToggleButtonGroup` legacy list.
+- The drain shows in a token-styled panel with its count, a progress bar and Cancel. The bar turns to the warning color while cancelling.
+- The page passes the view one `TrashDrain` state (`idle`, `starting`, `running` or `cancelling`) built from `useEmptyTrash`.
+- An empty trash shows the grid's "Total hits: 0" line, not an `EmptyState`. The page would need the grid's result count, which `LibraryProgramGrid` doesn't expose, so the empty state waits for Phase 5.
 
 ### Phase 4. Forms and settings
 

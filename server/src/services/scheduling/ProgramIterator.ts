@@ -3,6 +3,7 @@ import type { BaseSlot, FillerProgrammingSlot } from '@tunarr/types/api';
 import dayjs from 'dayjs';
 import { nth } from 'lodash-es';
 import type { Nullable } from '../../types/util.ts';
+import type { ProgramIteratorSnapshot } from './slotIteratorState.ts';
 import type {
   SlotIteratorKey,
   SlotSchedulerProgram,
@@ -25,6 +26,11 @@ export interface ProgramIterator<
   next(): void;
   reset(): void;
   fork(): ProgramIterator<ProgramT>;
+  // Iterators without resumable state leave this out.
+  snapshot?(): ProgramIteratorSnapshot | undefined;
+  // The program this iterator would play for an ID, or null when it has no
+  // such program. Restores a recording from stored IDs.
+  programById?(programId: string): Nullable<ProgramT>;
 }
 
 abstract class BaseProgramIterator<ProgramT extends CondensedChannelProgram>
@@ -48,18 +54,33 @@ export abstract class IndexBasedProgramIterator<
   ProgramT extends CondensedChannelProgram,
 > extends BaseProgramIterator<ProgramT> {
   protected position: number = 0;
+  protected lastPlayedId: string | undefined;
 
   current(): ProgramT | null {
     const curr = nth(this.programs, this.position);
-    if (!curr) {
-      return null;
-    }
-    const cached = this.mintCache.get(curr.uuid);
+    return curr ? this.minted(curr) : null;
+  }
+
+  programById(programId: string): ProgramT | null {
+    const program = this.allPrograms().find(
+      (candidate) => candidate.uuid === programId,
+    );
+    return program ? this.minted(program) : null;
+  }
+
+  // Every program this iterator can play, including any a resumed pass has
+  // left out of `programs`.
+  protected allPrograms(): SlotSchedulerProgram[] {
+    return this.programs;
+  }
+
+  private minted(program: SlotSchedulerProgram): ProgramT {
+    const cached = this.mintCache.get(program.uuid);
     if (cached) {
       return cached;
     }
-    const minted = this.mint(curr);
-    this.mintCache.set(curr.uuid, minted);
+    const minted = this.mint(program);
+    this.mintCache.set(program.uuid, minted);
     return minted;
   }
 
@@ -68,11 +89,34 @@ export abstract class IndexBasedProgramIterator<
       // Modulo zero yields NaN, which would permanently poison the position.
       return;
     }
+    this.lastPlayedId = this.programs[this.position]?.uuid;
     this.position = (this.position + 1) % this.programs.length;
   }
 
   reset(): void {
     this.position = 0;
+    this.lastPlayedId = undefined;
+  }
+
+  snapshot(): ProgramIteratorSnapshot | undefined {
+    if (this.lastPlayedId === undefined) {
+      return;
+    }
+    return { type: 'ordered', lastProgramId: this.lastPlayedId };
+  }
+
+  // Moves to the program after `programId`. Returns false, leaving the
+  // position alone, when the program is no longer in the list.
+  protected resumeAfter(programId: string): boolean {
+    const index = this.programs.findIndex(
+      (program) => program.uuid === programId,
+    );
+    if (index < 0) {
+      return false;
+    }
+    this.position = (index + 1) % this.programs.length;
+    this.lastPlayedId = programId;
+    return true;
   }
 }
 
@@ -80,12 +124,19 @@ export class RerunProgramIterator<
   ProgramT extends CondensedChannelProgram = CondensedChannelProgram,
 > implements ProgramIterator<ProgramT>
 {
-  #consumedCount = 0;
+  #consumedCount: number;
 
   constructor(
     private inner: ProgramIterator<ProgramT>,
     private groupSize: number,
-  ) {}
+    consumedCount = 0,
+  ) {
+    this.#consumedCount = consumedCount < groupSize ? consumedCount : 0;
+  }
+
+  get consumedCount() {
+    return this.#consumedCount;
+  }
 
   current(state: IterationState): ProgramT | null {
     return this.inner.current(state);
@@ -157,6 +208,22 @@ export class RecordingProgramIterator<
     return this.#periodBuffer;
   }
 
+  // Restores a stored recording. Returns, for each stored ID, the index it
+  // landed at, or undefined when the program is gone.
+  restorePeriod(programIds: readonly string[]): (number | undefined)[] {
+    const buffer: ProgramT[] = [];
+    const positions = programIds.map((programId) => {
+      const program = this.inner.programById?.(programId);
+      if (!program) {
+        return;
+      }
+      buffer.push(program);
+      return buffer.length - 1;
+    });
+    this.#periodBuffer = buffer;
+    return positions;
+  }
+
   fork(): ProgramIterator<ProgramT> {
     return this;
   }
@@ -178,10 +245,20 @@ export class ReplayProgramIterator<
   #replayCursor = 0;
   #overflowed = false;
 
+  // `replayCursor` resumes a stored place in the recorder's buffer. The
+  // overflow flag is not stored, because current() sets it before every
+  // next() that reads it.
   constructor(
     private recorder: RecordingProgramIterator<ProgramT>,
     private overflowMode: 'flex' | 'continue' = 'flex',
-  ) {}
+    replayCursor = 0,
+  ) {
+    this.#replayCursor = replayCursor;
+  }
+
+  get replayCursor() {
+    return this.#replayCursor;
+  }
 
   current(state: IterationState): ProgramT | null {
     const buffer = this.recorder.periodBuffer;

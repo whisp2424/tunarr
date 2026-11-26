@@ -4,7 +4,7 @@ Channels are the core of Tunarr. Each channel acts like a virtual TV station wit
 
 ![Creating a new channel](../../assets/channels-new.png)
 
-Click the **NEW** button to create your first channel, which will take you to the [Channel Properties](properties.md) page.
+Click the **NEW** button to create your first channel, which will take you to the [Channel Properties](properties.md) page. To build a channel from a preset instead, use [Auto Create](auto-create.md).
 
 <div class="grid cards" markdown>
 
@@ -45,6 +45,12 @@ Click the **NEW** button to create your first channel, which will take you to th
     Add logo overlays and watermarks to your channel's video output.
 
 </div>
+
+## Bulk Actions
+
+In table view, the Channels page lets you select several channels with the row checkboxes. The selection bar above the table then shows bulk actions, including:
+
+- **Assign fillers**: Add or replace [filler lists](/configure/library/filler#bulk-filler-assignment) across all selected channels in one operation.
 
 ## Getting Started
 

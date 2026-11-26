@@ -4,6 +4,8 @@ import {
   ChannelSlotScheduleRequest,
   ProgramsSlotScheduleRequest,
 } from '../services/scheduling/RandomSlotSchedulerService.ts';
+import { SlotIteratorStateSchema } from '../services/scheduling/slotIteratorState.ts';
+import { SlotCheckpointSchema } from '../services/scheduling/slotCheckpoints.ts';
 import {
   ChannelTimeSlotScheduleRequest,
   ProgramsTimeSlotScheduleRequest,
@@ -80,7 +82,11 @@ const WorkerStatusReply = z.object({
 
 export const WorkerTimeSlotScheduleReply = z.object({
   type: z.literal('time-slots'),
-  result: TimeSlotScheduleResult,
+  result: z.object({
+    ...TimeSlotScheduleResult.shape,
+    iteratorState: SlotIteratorStateSchema,
+    checkpoints: SlotCheckpointSchema.array().optional(),
+  }),
 });
 
 export type WorkerTimeSlotScheduleReply = z.infer<
@@ -89,7 +95,11 @@ export type WorkerTimeSlotScheduleReply = z.infer<
 
 const WorkerSlotScheduleReply = z.object({
   type: z.literal('schedule-slots'),
-  result: SlotScheduleResult,
+  result: z.object({
+    ...SlotScheduleResult.shape,
+    iteratorState: SlotIteratorStateSchema,
+    checkpoints: SlotCheckpointSchema.array().optional(),
+  }),
 });
 
 export type WorkerSlotScheduleReply = z.infer<typeof WorkerSlotScheduleReply>;

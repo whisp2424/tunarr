@@ -41,6 +41,7 @@ import {
 } from '../util/constants.ts';
 import { fileExists } from '../util/fsUtil.ts';
 import { isDefined, isNonEmptyString } from '../util/index.ts';
+import throttle from '../util/throttle.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import {
@@ -272,6 +273,11 @@ export class SubtitleExtractorTask extends Task2<
     mediaSource: MediaSourceWithRelations,
     opts: { skipWhenCached?: boolean } = {},
   ) {
+    // A program with nothing to extract only runs synchronous database reads,
+    // so its awaits never leave the microtask queue. Yield to the event loop
+    // first, or a long filler list stalls every stream until the run ends.
+    await throttle();
+
     const result = await Result.attemptAsync(() =>
       this.handleProgram(programId, mediaSource, opts),
     );

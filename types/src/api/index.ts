@@ -42,6 +42,7 @@ import {
 import { MaterializedSlot, RandomSlotScheduleSchema } from './RandomSlots.js';
 import { MaterializedTimeSlot, TimeSlotScheduleSchema } from './TimeSlots.js';
 
+export * from './AutoChannel.js';
 export * from './CommonSlots.js';
 export * from './RandomSlots.js';
 export * from './Scheduling.js';
@@ -175,6 +176,9 @@ export const TimeBasedProgramLineupSchema = z.object({
   schedule: TimeSlotScheduleSchema,
   seed: z.number().array().optional(),
   discardCount: z.number().optional(),
+  // Rebuild the schedule at every cycle boundary instead of looping the saved
+  // items. Omitted keeps the channel's current setting.
+  rebuildEachCycle: z.boolean().optional(),
 });
 
 export const RandomSlotProgramLineupSchema = z.object({
@@ -183,6 +187,9 @@ export const RandomSlotProgramLineupSchema = z.object({
   schedule: RandomSlotScheduleSchema,
   seed: z.number().array().optional(),
   discardCount: z.number().optional(),
+  // Rebuild the schedule at every cycle boundary instead of looping the saved
+  // items. Omitted keeps the channel's current setting.
+  rebuildEachCycle: z.boolean().optional(),
 });
 
 export const UpdateChannelProgrammingRequestSchema = z.discriminatedUnion(
@@ -594,4 +601,52 @@ export const UpdateFeatureFlagsRequestSchema = z.object({
 
 export type UpdateFeatureFlagsRequest = z.infer<
   typeof UpdateFeatureFlagsRequestSchema
+>;
+
+export const BulkAssignFillersRequestSchema = z
+  .object({
+    channelIds: z.array(z.string().uuid()).min(1).max(1_000),
+    fillers: z
+      .array(
+        z.object({
+          fillerShowId: z.string().uuid(),
+          weight: z.number().int().positive(),
+          cooldownSeconds: z.number().int().nonnegative(),
+        }),
+      )
+      .min(1)
+      .max(100),
+    mode: z.enum(['add', 'replace']),
+  })
+  .superRefine((req, ctx) => {
+    // Each (channel, filler) pair is a primary key, so repeats would fail the insert.
+
+    if (new Set(req.channelIds).size !== req.channelIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['channelIds'],
+        message: 'channelIds must not contain duplicates',
+      });
+    }
+    const fillerIds = req.fillers.map((f) => f.fillerShowId);
+    if (new Set(fillerIds).size !== fillerIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['fillers'],
+        message: 'fillers must not repeat a fillerShowId',
+      });
+    }
+  });
+
+export type BulkAssignFillersRequest = z.infer<
+  typeof BulkAssignFillersRequestSchema
+>;
+
+export const BulkAssignFillersResponseSchema = z.object({
+  added: z.number(),
+  updated: z.number(),
+});
+
+export type BulkAssignFillersResponse = z.infer<
+  typeof BulkAssignFillersResponseSchema
 >;

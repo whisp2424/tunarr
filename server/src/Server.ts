@@ -42,13 +42,20 @@ import { HdhrApiRouter } from './api/hdhrApi.js';
 import { apiRouter } from './api/index.js';
 import { streamApi } from './api/streamApi.js';
 import { videoApiRouter } from './api/videoApi.js';
-import { createTunarrBasicAuthHook } from './util/basicAuth.js';
+import {
+  basicAuthConfigFromEnv,
+  createTunarrBasicAuthHook,
+} from './util/basicAuth.js';
 import { defaultHlsOptions } from './ffmpeg/builder/constants.ts';
 import { type ServerOptions, serverOptions } from './globals.js';
 import type { IWorkerPool } from './interfaces/IWorkerPool.ts';
 import { ServerContext, ServerRequestContext } from './ServerContext.js';
 import { Result } from './types/result.ts';
-import { getEnvVar, TUNARR_ENV_VARS } from './util/env.ts';
+import { getEnvVar, getNumericEnvVar, TUNARR_ENV_VARS } from './util/env.ts';
+import {
+  eventLoopStallThresholdMs,
+  startEventLoopStallLog,
+} from './util/eventLoopStallMonitor.ts';
 import { filename, isDev, run, timeoutPromise } from './util/index.js';
 import { InjectLogger } from './util/inject.js';
 import { type Logger } from './util/logging/LoggerFactory.js';
@@ -85,6 +92,7 @@ export class Server {
   @InjectLogger() declare private readonly logger: Logger;
 
   private app!: ServerType;
+  private stopEventLoopStallLog?: () => void;
 
   constructor(
     @inject(KEYS.ServerOptions) private serverOptions: ServerOptions,
@@ -114,19 +122,9 @@ export class Server {
       .setSerializerCompiler(serializerCompiler)
       .withTypeProvider<ZodTypeProvider>();
 
-    const basicAuthUser = getEnvVar(TUNARR_ENV_VARS.BASIC_AUTH_USER_ENV_VAR);
-    const basicAuthPassword = getEnvVar(
-      TUNARR_ENV_VARS.BASIC_AUTH_PASSWORD_ENV_VAR,
-    );
-
-    if (basicAuthUser && basicAuthPassword) {
-      this.app.addHook(
-        'onRequest',
-        createTunarrBasicAuthHook({
-          username: basicAuthUser,
-          password: basicAuthPassword,
-        }),
-      );
+    const basicAuth = basicAuthConfigFromEnv();
+    if (basicAuth) {
+      this.app.addHook('onRequest', createTunarrBasicAuthHook(basicAuth));
     }
 
     if (serverOptions().printRoutes) {
@@ -490,6 +488,8 @@ export class Server {
       port: this.serverOptions.port,
     });
 
+    this.logEventLoopStalls();
+
     this.logger.debug(
       'Took %d ms for the server to start',
       round(performance.now() - start, 2),
@@ -549,8 +549,22 @@ export class Server {
     return this.app;
   }
 
+  private logEventLoopStalls() {
+    const thresholdMs = eventLoopStallThresholdMs(
+      getNumericEnvVar(TUNARR_ENV_VARS.EVENT_LOOP_STALL_THRESHOLD_MS),
+    );
+    if (!thresholdMs) {
+      return;
+    }
+    this.stopEventLoopStallLog = startEventLoopStallLog(this.logger, {
+      thresholdMs,
+    });
+  }
+
   private async gracefulShutdown() {
     const t = new Date().getTime();
+
+    this.stopEventLoopStallLog?.();
 
     try {
       this.serverContext.eventService.push({

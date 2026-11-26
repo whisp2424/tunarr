@@ -5,6 +5,7 @@ import type {
 } from '@/db/interfaces/IProgramDB.js';
 import { KEYS } from '@/types/inject.js';
 import type { PagedResult } from '@/types/util.js';
+import type { Column } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 import type { Kysely } from 'kysely';
@@ -103,6 +104,7 @@ export class ProgramSearchRepository {
         externalKey: result.externalKey,
         libraryId: result.libraryId,
         uuid: result.uuid,
+        state: result.state,
       };
     }
 
@@ -120,12 +122,7 @@ export class ProgramSearchRepository {
       type,
       parentFilter,
     )) {
-      grouped[result.externalKey] = {
-        canonicalId: result.canonicalId,
-        externalKey: result.externalKey,
-        libraryId: result.libraryId,
-        uuid: result.uuid,
-      };
+      grouped[result.externalKey] = result;
     }
 
     return grouped;
@@ -163,6 +160,7 @@ export class ProgramSearchRepository {
           canonicalId: true,
           libraryId: true,
           externalKey: true,
+          state: true,
         },
         limit: 500,
       });
@@ -178,6 +176,7 @@ export class ProgramSearchRepository {
           canonicalId: item.canonicalId,
           uuid: item.uuid,
           libraryId: item.libraryId,
+          state: item.state,
         };
       }
     }
@@ -191,10 +190,19 @@ export class ProgramSearchRepository {
   ): Promise<Dictionary<ProgramGroupingCanonicalIdLookupResult>> {
     const results = await this.drizzleDB.query.programGrouping.findMany({
       where: (fields, { and, eq, isNotNull }) => {
-        const parentField = match(type)
-          .with('album', () => fields.artistUuid)
-          .with('season', () => fields.showUuid)
-          .otherwise(() => null);
+        let parentField: Column | null;
+        switch (type) {
+          case 'album':
+            parentField = fields.artistUuid;
+            break;
+          case 'season':
+            parentField = fields.showUuid;
+            break;
+          case 'show':
+          case 'artist':
+            parentField = null;
+            break;
+        }
         return and(
           eq(fields.libraryId, mediaSourceLibraryId),
           eq(fields.type, type),
