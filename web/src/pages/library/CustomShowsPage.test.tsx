@@ -38,8 +38,6 @@ const shows: CustomShow[] = [
   },
 ];
 
-];
-
 // Dense density shows the table, so rows can be clicked.
 const renderPage = (dense = false) =>
   renderWithProviders(
