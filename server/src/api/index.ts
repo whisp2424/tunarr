@@ -6,23 +6,31 @@ import { XmlTvWriter } from '@/services/XmlTvWriter.js';
 import { EtvNextBinaryResolver } from '@/stream/etv/EtvNextBinaryResolver.js';
 import { UpdateXmlTvTask } from '@/tasks/UpdateXmlTvTask.js';
 import type { RouterPluginAsyncCallback } from '@/types/serverType.js';
+import type { Maybe } from '@/types/util.js';
 import { fileExists } from '@/util/fsUtil.js';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.js';
 import { getTunarrVersion } from '@/util/version.js';
+import type { SavedMultipartFile } from '@fastify/multipart';
 import fpStatic from '@fastify/static';
 import { VersionApiResponseSchema } from '@tunarr/types/api';
 import { fileTypeFromStream } from 'file-type';
-import { isEmpty } from 'lodash-es';
 import { randomUUID } from 'node:crypto';
 import { createReadStream, promises as fsPromises } from 'node:fs';
 import path from 'node:path';
+import { pipeline } from 'node:stream';
 import { z } from 'zod/v4';
 import { container } from '../container.ts';
 import { TruthyQueryParam } from '../types/schemas.ts';
+import { ReplaceAllTransform } from '../util/streams.ts';
 import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
+import { basicAuthConfigFromEnv, isAuthorized } from '../util/basicAuth.js';
 import { isDev, isNonEmptyString, run } from '../util/index.js';
+import {
+  ChannelNumbersParamPattern,
+  parseChannelNumbersParam,
+} from '../services/M3UService.js';
+import { AutoChannelApiController } from './autoChannelApi.ts';
 import { channelsApi } from './channelsApi.js';
-import { nativePlaybackApi } from './nativePlaybackApi.js';
 import { CreditsApiController } from './creditsApi.ts';
 import { customShowsApiV2 } from './customShowsApi.js';
 import { debugApi } from './debugApi.js';
@@ -34,6 +42,7 @@ import { guideRouter } from './guideApi.js';
 import { hdhrSettingsRouter } from './hdhrSettingsApi.js';
 import { jellyfinApiRouter } from './jellyfinApi.js';
 import { mediaSourceRouter } from './mediaSourceApi.js';
+import { nativePlaybackApi } from './nativePlaybackApi.js';
 import { plexApiRouter } from './plexApi.ts';
 import { plexSettingsRouter } from './plexSettingsApi.js';
 import { ProgramGroupingApiController } from './programGroupingApi.ts';
@@ -41,10 +50,10 @@ import { programmingApi } from './programmingApi.js';
 import { sessionApiRouter } from './sessionApi.js';
 import { settingsApi } from './settingsApi.ts';
 import { SmartCollectionsApiController } from './smartCollectionsApi.ts';
+import { streamSelectionRouter } from './streamSelectionApi.ts';
 import { systemApiRouter } from './systemApi.js';
 import { tasksApiRouter } from './tasksApi.js';
 import { trashApi } from './trashApi.ts';
-import { streamSelectionRouter } from './streamSelectionApi.ts';
 import { troubleshootApiRouter } from './troubleshootApi.js';
 import { xmlTvSettingsRouter } from './xmltvSettingsApi.js';
 
@@ -90,7 +99,8 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
     .register(container.get(SmartCollectionsApiController).mount)
     .register(container.get(EtvNextApiController).mount)
     .register(container.get(CreditsApiController).mount)
-    .register(container.get(ProgramGroupingApiController).mount);
+    .register(container.get(ProgramGroupingApiController).mount)
+    .register(container.get(AutoChannelApiController).mount);
 
   if (isDev || getBooleanEnvVar(TUNARR_ENV_VARS.MOUNT_DEBUG_ENDPOINTS, false)) {
     await fastify.register(debugApi);
@@ -180,43 +190,52 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
       },
     },
     async (req, res) => {
-      const allSavedFiles = await req.saveRequestFiles();
-
-      if (isEmpty(allSavedFiles)) {
-        return res.status(400).send();
-      }
-
-      // We disregard any other files that were part of the upload
-      const data = allSavedFiles[0]!;
-
-      const fileType = await fileTypeFromStream(
-        createReadStream(data.filepath),
+      const saved = await saveFirstUpload(
+        await req.saveRequestFiles(),
+        'image/',
+        path.join(serverOptions().databaseDirectory, 'images', 'uploads'),
       );
 
-      if (!fileType?.mime.startsWith('image/')) {
+      if (!saved) {
         return res.status(400).send();
       }
-
-      const baseDir = path.join(
-        serverOptions().databaseDirectory,
-        'images',
-        'uploads',
-      );
-
-      if (!(await fileExists(baseDir))) {
-        await fsPromises.mkdir(baseDir, { recursive: true });
-      }
-
-      // The client filename is never used. Its extension decides the
-      // Content-Type the file is served with, so a client-chosen name like
-      // "x.html" would let an image-prefixed page run on Tunarr's origin.
-      const fileName = `${randomUUID()}.${fileType.ext}`;
-      await fsPromises.copyFile(data.filepath, path.join(baseDir, fileName));
 
       return res.send({
-        name: fileName,
-        fileUrl: `${req.protocol}://${req.host}/images/uploads/${fileName}`,
+        name: saved.name,
+        fileUrl: `${req.protocol}://${req.host}/images/uploads/${saved.name}`,
       });
+    },
+  );
+
+  fastify.post(
+    '/upload/audio',
+    {
+      schema: {
+        description:
+          'Saves an audio file on the server and returns its local path, which ffmpeg reads directly',
+        consumes: ['multipart/form-data'],
+        body: z.any(),
+        response: {
+          200: z.object({
+            name: z.string(),
+            filePath: z.string(),
+          }),
+          400: z.void(),
+        },
+      },
+    },
+    async (req, res) => {
+      const saved = await saveFirstUpload(
+        await req.saveRequestFiles(),
+        'audio/',
+        path.join(serverOptions().databaseDirectory, 'uploads', 'audio'),
+      );
+
+      if (!saved) {
+        return res.status(400).send();
+      }
+
+      return res.send({ name: saved.name, filePath: saved.path });
     },
   );
 
@@ -248,12 +267,22 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
         const host = `${req.protocol}://${req.host}`;
 
         const outputPath = await container.get(XmlTvWriter).resolveOutputPath();
-        const fileContent = await fsPromises.readFile(outputPath, 'utf8');
-        const fileFinal = fileContent.replace(/\{\{host\}\}/g, host);
+        // Opened before streaming so a missing file still returns a 500.
+        const file = await fsPromises.open(outputPath, 'r');
+        const body = pipeline(
+          file.createReadStream({ encoding: 'utf8' }),
+          new ReplaceAllTransform('{{host}}', host),
+          (err) => {
+            // A client that disconnects early is not an error worth logging.
+            if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+              logger.warn(err, 'Failed to stream the XMLTV file');
+            }
+          },
+        );
         return res
           .header('Cache-Control', 'no-store')
           .header('Content-Type', 'application/xml')
-          .send(fileFinal);
+          .send(body);
       } catch (err) {
         logger.error(err);
         return res.status(500).send('error');
@@ -274,6 +303,16 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
       querystring: z.object({
         forceHttps: TruthyQueryParam.optional(),
         hostOverride: z.string().optional(),
+        channels: z
+          .string()
+          .regex(ChannelNumbersParamPattern)
+          .optional()
+          .describe(
+            'Comma-separated channel numbers. Limits the playlist to those channels. Stealth channels are included only for authorized requests.',
+          ),
+        download: TruthyQueryParam.optional().describe(
+          'Sends the playlist as a file attachment.',
+        ),
       }),
       tags: ['Streaming'],
     },
@@ -293,7 +332,21 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
         }
 
         const host = `${protocol}://${reqHost}`;
-        const data = await req.serverCtx.m3uService.getChannelsM3U(host);
+        // The route is public, so stealth channels need valid credentials.
+        const data = isNonEmptyString(req.query.channels)
+          ? await req.serverCtx.m3uService.getChannelsM3UFor(
+              host,
+              parseChannelNumbersParam(req.query.channels),
+              isAuthorized(req.headers.authorization, basicAuthConfigFromEnv()),
+            )
+          : await req.serverCtx.m3uService.getChannelsM3U(host);
+
+        if (req.query.download) {
+          void res.header(
+            'Content-Disposition',
+            'attachment; filename="channels.m3u"',
+          );
+        }
 
         return res.type('text').send(data);
       } catch (err) {
@@ -320,3 +373,35 @@ export const apiRouter: RouterPluginAsyncCallback = async (fastify) => {
     },
   );
 };
+
+/**
+ * Copies the first uploaded file into `baseDir` when its sniffed MIME type
+ * starts with `mimePrefix`. Any other files in the upload are ignored.
+ */
+async function saveFirstUpload(
+  files: SavedMultipartFile[],
+  mimePrefix: string,
+  baseDir: string,
+): Promise<Maybe<{ name: string; path: string }>> {
+  const [file] = files;
+  if (!file) {
+    return;
+  }
+
+  const fileType = await fileTypeFromStream(createReadStream(file.filepath));
+  if (!fileType?.mime.startsWith(mimePrefix)) {
+    return;
+  }
+
+  if (!(await fileExists(baseDir))) {
+    await fsPromises.mkdir(baseDir, { recursive: true });
+  }
+
+  // The client filename is never used. Its extension decides the
+  // Content-Type the file is served with, so a client-chosen name like
+  // "x.html" would let an image-prefixed page run on Tunarr's origin.
+  const name = `${randomUUID()}.${fileType.ext}`;
+  const filePath = path.join(baseDir, name);
+  await fsPromises.copyFile(file.filepath, filePath);
+  return { name, path: filePath };
+}

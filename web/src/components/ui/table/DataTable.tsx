@@ -22,26 +22,28 @@ import {
   type TableCellProps,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   type TableRowProps,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { Row, RowData } from '@tanstack/react-table';
+import type { Row, RowData, RowSelectionState } from '@tanstack/react-table';
 import { clamp } from 'lodash-es';
-import { type ReactNode, useEffect, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { SortButton } from './SortButton.tsx';
+import { TablePager } from './TablePager.tsx';
 import { ColumnFilter } from './filters/ColumnFilter.tsx';
 import { sxList } from './sx.ts';
 import {
   ActionsColumnId,
+  ExpandColumnId,
+  SelectColumnId,
   type TunarrColumn,
   type TunarrFeatures,
   type TunarrTable,
   columnLabel,
-  pageSizeOptions,
+  lastPageIndex,
 } from './tunarrTable.ts';
 
 export type DataTableProps<TData extends RowData> = {
@@ -54,10 +56,33 @@ export type DataTableProps<TData extends RowData> = {
   // generic message instead.
   emptyFallback?: ReactNode;
   getRowProps?: (row: Row<TunarrFeatures, TData>) => TableRowProps;
+
+  // Drawn in a full-width row under each expanded row. Pair it with
+  // expandColumn() and the table's getRowCanExpand option.
+  renderDetail?: (row: Row<TunarrFeatures, TData>) => ReactNode;
   loading?: boolean;
   defaultShowFilters?: boolean;
   'aria-label'?: string;
+
+  // Turns on J/K to move between rows, X to select the current row, and Enter
+  // to open it. The keys work while focus is on the page body or inside the
+  // table, and never while typing in a field.
+  keyboardNavigation?: {
+    onOpen: (row: Row<TunarrFeatures, TData>) => void;
+  };
 };
+
+const isTextEntry = (el: Element) =>
+  (el instanceof HTMLInputElement &&
+    el.type !== 'checkbox' &&
+    el.type !== 'radio') ||
+  el instanceof HTMLTextAreaElement ||
+  el instanceof HTMLSelectElement ||
+  (el instanceof HTMLElement && el.isContentEditable);
+
+// Columns that hold their own controls. Their clicks never reach the row.
+const isControlColumn = (id: string) =>
+  id === ActionsColumnId || id === SelectColumnId || id === ExpandColumnId;
 
 // Moves a saved page index that falls outside the page range back into it.
 // autoResetPageIndex skips the first render, so it never repairs one on load.
@@ -81,10 +106,54 @@ const PageIndexRepair = <TData extends RowData>({
   return null;
 };
 
+// Drops selected rows that the search or a column filter hides, so a bulk
+// action never reaches a row the user can no longer see.
+const SelectionPrune = <TData extends RowData>({
+  table,
+  selection,
+  globalFilter,
+  columnFilters,
+}: {
+  table: TunarrTable<TData>;
+  selection: RowSelectionState;
+  globalFilter: string;
+  columnFilters: unknown;
+}) => {
+  // Reads the selection from a ref, so selecting a row never re-runs the prune.
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+
+  useEffect(() => {
+    const selection = selectionRef.current;
+    const selectedIds = Object.keys(selection).filter((id) => selection[id]);
+    if (selectedIds.length === 0) {
+      return;
+    }
+    const shown = new Set(
+      table.getFilteredRowModel().rows.map((row) => row.id),
+    );
+    if (selectedIds.every((id) => shown.has(id))) {
+      return;
+    }
+    table.setRowSelection(
+      Object.fromEntries(
+        selectedIds.filter((id) => shown.has(id)).map((id) => [id, true]),
+      ),
+    );
+  }, [table, globalFilter, columnFilters]);
+  return null;
+};
+
+const showsRowFilter = <TData extends RowData>(column: TunarrColumn<TData>) =>
+  column.getCanFilter() && !column.columnDef.meta?.filterInHeader;
+
 const cellAlign = <TData extends RowData>(
   column: TunarrColumn<TData>,
   isFirst: boolean,
 ): TableCellProps['align'] => {
+  if (column.id === SelectColumnId || column.id === ExpandColumnId) {
+    return 'left';
+  }
   if (column.id === ActionsColumnId) {
     return isFirst ? 'left' : 'right';
   }
@@ -96,22 +165,97 @@ export const DataTable = <TData extends RowData>({
   toolbarActions,
   emptyFallback,
   getRowProps,
+  renderDetail,
   loading = false,
   defaultShowFilters = false,
   'aria-label': ariaLabel,
+  keyboardNavigation,
 }: DataTableProps<TData>) => {
   const { t } = useLingui();
   const [showFilters, setShowFilters] = useState(defaultShowFilters);
   const [showSearch, setShowSearch] = useState(false);
   const [columnsMenuAnchor, setColumnsMenuAnchor] =
     useState<HTMLElement | null>(null);
+  const [activeRowId, setActiveRowId] = useState<string>();
+
+  // Keys can arrive faster than renders, so the handler reads the ref.
+  const activeRowRef = useRef<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rowElements = useRef(new Map<string, HTMLTableRowElement>());
+  const onOpen = keyboardNavigation?.onOpen;
+
+  useEffect(() => {
+    if (!onOpen) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      const container = containerRef.current;
+      const target = e.target;
+      if (
+        e.defaultPrevented ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        !container ||
+        !(target instanceof Element) ||
+        (target !== document.body && !container.contains(target)) ||
+        isTextEntry(target)
+      ) {
+        return;
+      }
+
+      const rows = table.getRowModel().rows;
+      const index = rows.findIndex((row) => row.id === activeRowRef.current);
+      const active = index >= 0 ? rows[index] : undefined;
+      const moveTo = (next: number) => {
+        const row = rows[Math.max(0, Math.min(next, rows.length - 1))];
+        if (row) {
+          e.preventDefault();
+          activeRowRef.current = row.id;
+          setActiveRowId(row.id);
+          rowElements.current.get(row.id)?.focus();
+        }
+      };
+
+      switch (e.key) {
+        case 'j':
+        case 'J':
+          moveTo(index + 1);
+          break;
+        case 'k':
+        case 'K':
+          moveTo(index < 0 ? 0 : index - 1);
+          break;
+        case 'x':
+        case 'X':
+          if (active?.getCanSelect()) {
+            e.preventDefault();
+            active.toggleSelected();
+          }
+          break;
+        case 'Enter':
+          // Enter on a button or link inside the row belongs to that control.
+          if (
+            active &&
+            (target === document.body ||
+              target === rowElements.current.get(active.id))
+          ) {
+            e.preventDefault();
+            onOpen(active);
+          }
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onOpen, table]);
 
   return (
     <table.Subscribe selector={(state) => state}>
       {(state) => {
         const leafColumns = table.getAllLeafColumns();
         const hideableColumns = leafColumns.filter((c) => c.getCanHide());
-        const canFilter = leafColumns.some((c) => c.getCanFilter());
+        const canFilter = leafColumns.some(showsRowFilter);
         const canSearch = table.options.enableGlobalFilter ?? true;
         const activeFilters = state.columnFilters.length;
         const visibleColumns = table.getVisibleLeafColumns();
@@ -121,13 +265,11 @@ export const DataTable = <TData extends RowData>({
         const rows = table.getRowModel().rows;
         const rowCount = table.getFilteredRowModel().rows.length;
         const { pageIndex, pageSize } = state.pagination;
-        const lastPage = Math.max(0, Math.ceil(rowCount / pageSize) - 1);
-        const rowsPerPageOptions = pageSizeOptions.includes(pageSize)
-          ? pageSizeOptions
-          : [...pageSizeOptions, pageSize].sort((a, b) => a - b);
+        const lastPage = lastPageIndex(rowCount, pageSize);
 
         return (
           <Box
+            ref={containerRef}
             sx={(theme) => ({
               border: `1px solid ${theme.palette.tokens.border}`,
               borderRadius: `${theme.sizes.radiusCard}px`,
@@ -322,7 +464,7 @@ export const DataTable = <TData extends RowData>({
                                     <SortButton column={column} />
                                   )}
                                 </Box>
-                                {showFilters && column.getCanFilter() && (
+                                {showFilters && showsRowFilter(column) && (
                                   <ColumnFilter column={column} />
                                 )}
                               </Stack>
@@ -361,60 +503,97 @@ export const DataTable = <TData extends RowData>({
                     rows.map((row) => {
                       const rowProps = getRowProps?.(row);
                       const clickable = rowProps?.onClick !== undefined;
+                      const isActive =
+                        keyboardNavigation !== undefined &&
+                        row.id === activeRowId;
+                      const detail =
+                        renderDetail && row.getIsExpanded()
+                          ? renderDetail(row)
+                          : undefined;
                       return (
-                        <TableRow
-                          key={row.id}
-                          hover={clickable}
-                          {...rowProps}
-                          sx={[
-                            clickable && { cursor: 'pointer' },
-                            ...sxList(rowProps?.sx),
-                          ]}
-                        >
-                          {row.getVisibleCells().map((cell) => {
-                            const column = cell.column;
-                            const meta = column.columnDef.meta;
-                            const isActions = column.id === ActionsColumnId;
-                            return (
-                              <TableCell
-                                key={cell.id}
-                                align={cellAlign(
-                                  column,
-                                  column.id === firstColumnId,
-                                )}
-                                {...meta?.cellProps}
-                                sx={[
-                                  (theme) => ({
-                                    width: meta?.width,
-                                    ...(meta?.numeric && {
-                                      ...theme.typography.mono,
+                        <Fragment key={row.id}>
+                          <TableRow
+                            hover={clickable}
+                            selected={row.getIsSelected()}
+                            tabIndex={keyboardNavigation ? -1 : undefined}
+                            ref={(el: HTMLTableRowElement | null) => {
+                              if (el) {
+                                rowElements.current.set(row.id, el);
+                              } else {
+                                rowElements.current.delete(row.id);
+                              }
+                            }}
+                            {...rowProps}
+                            sx={[
+                              clickable && { cursor: 'pointer' },
+                              { outline: 'none' },
+                              isActive &&
+                                ((theme) => ({
+                                  boxShadow: `inset 3px 0 0 ${theme.palette.primary.main}`,
+                                })),
+                              ...sxList(rowProps?.sx),
+                            ]}
+                          >
+                            {row.getVisibleCells().map((cell) => {
+                              const column = cell.column;
+                              const meta = column.columnDef.meta;
+                              const isActions = column.id === ActionsColumnId;
+                              const isControl = isControlColumn(column.id);
+                              return (
+                                <TableCell
+                                  key={cell.id}
+                                  align={cellAlign(
+                                    column,
+                                    column.id === firstColumnId,
+                                  )}
+                                  {...meta?.cellProps}
+                                  sx={[
+                                    (theme) => ({
+                                      width: meta?.width,
+                                      ...(meta?.numeric && {
+                                        ...theme.typography.mono,
+                                      }),
                                     }),
-                                  }),
-                                  isActions &&
-                                    ((theme) => ({
-                                      py: 0,
-                                      whiteSpace: 'nowrap',
-                                      '& .MuiIconButton-root': {
-                                        p: 0.75,
-                                        color: 'text.secondary',
-                                      },
-                                      '& .MuiSvgIcon-root': {
-                                        fontSize: theme.sizes.fontSize + 6,
-                                      },
-                                    })),
-                                  ...sxList(meta?.cellProps?.sx),
-                                ]}
-                                onClick={
-                                  isActions
-                                    ? (e) => e.stopPropagation()
-                                    : meta?.cellProps?.onClick
-                                }
+                                    isActions &&
+                                      ((theme) => ({
+                                        py: 0,
+                                        whiteSpace: 'nowrap',
+                                        '& .MuiIconButton-root': {
+                                          p: 0.75,
+                                          color: 'text.secondary',
+                                        },
+                                        '& .MuiSvgIcon-root': {
+                                          fontSize: theme.sizes.fontSize + 6,
+                                        },
+                                      })),
+                                    ...sxList(meta?.cellProps?.sx),
+                                  ]}
+                                  onClick={
+                                    isControl
+                                      ? (e) => e.stopPropagation()
+                                      : meta?.cellProps?.onClick
+                                  }
+                                >
+                                  <table.FlexRender cell={cell} />
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                          {detail !== undefined && (
+                            <TableRow>
+                              <TableCell
+                                colSpan={visibleColumns.length}
+                                sx={(theme) => ({
+                                  p: 0,
+                                  backgroundColor:
+                                    theme.palette.tokens.surfaceRaised,
+                                })}
                               >
-                                <table.FlexRender cell={cell} />
+                                {detail}
                               </TableCell>
-                            );
-                          })}
-                        </TableRow>
+                            </TableRow>
+                          )}
+                        </Fragment>
                       );
                     })
                   )}
@@ -428,34 +607,20 @@ export const DataTable = <TData extends RowData>({
               lastPage={lastPage}
               ready={hasData && !loading}
             />
-            {/* The clamp covers the one render before PageIndexRepair runs. MUI
-                logs an error for an out-of-range page. */}
-            <TablePagination
-              component="div"
+            <SelectionPrune
+              table={table}
+              selection={state.rowSelection}
+              globalFilter={
+                typeof state.globalFilter === 'string' ? state.globalFilter : ''
+              }
+              columnFilters={state.columnFilters}
+            />
+            <TablePager
               count={rowCount}
-              page={clamp(pageIndex, 0, lastPage)}
-              rowsPerPage={pageSize}
-              rowsPerPageOptions={rowsPerPageOptions}
-              onPageChange={(_, page) => table.setPageIndex(page)}
-              onRowsPerPageChange={(e) =>
-                table.setPageSize(Number(e.target.value))
-              }
-              labelRowsPerPage={t`Rows per page`}
-              labelDisplayedRows={({ from, to, count }) =>
-                t`${from}–${to} of ${count}`
-              }
-              getItemAriaLabel={(type) => {
-                switch (type) {
-                  case 'first':
-                    return t`Go to first page`;
-                  case 'last':
-                    return t`Go to last page`;
-                  case 'next':
-                    return t`Go to next page`;
-                  case 'previous':
-                    return t`Go to previous page`;
-                }
-              }}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              onPageChange={(page) => table.setPageIndex(page)}
+              onPageSizeChange={(size) => table.setPageSize(size)}
               sx={(theme) => ({
                 borderTop: `1px solid ${theme.palette.tokens.border}`,
               })}

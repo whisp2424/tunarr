@@ -20,6 +20,13 @@ type TablePage = {
   // Set once the page uses DataTable, which adds steps MRT can't pass.
   ported?: boolean;
 
+  // Collection pages show cards at comfortable density and the table only at
+  // dense, so they run with dense density.
+  dense?: boolean;
+
+  // Why the page can't pass the phone-width check yet.
+  skipPhone?: string;
+
   // A column whose values sort as plain text.
   sortColumn: string;
   hideColumn?: string;
@@ -98,6 +105,7 @@ const TABLES: Record<string, TableTarget> = {
   FillerLists: {
     url: () => '/library/fillers',
     ready: 'E2E Bumpers',
+    dense: true,
     persisted: true,
     ported: true,
     sortColumn: 'Name',
@@ -125,8 +133,9 @@ const TABLES: Record<string, TableTarget> = {
   },
 
   CustomShows: {
-    url: () => '/library/custom-shows',
+    url: () => '/library/playlists',
     ready: 'E2E Reruns',
+    dense: true,
     persisted: true,
     ported: true,
     sortColumn: 'Name',
@@ -141,13 +150,14 @@ const TABLES: Record<string, TableTarget> = {
       clickEditLink(
         page,
         rowWith(page, 'E2E Reruns'),
-        `/library/custom-shows/${ids.customShowId}/edit`,
+        `/library/playlists/${ids.customShowId}/edit`,
       ),
   },
 
   SmartCollections: {
     url: () => '/library/smart_collections',
     ready: 'E2E Movies Only',
+    dense: true,
     persisted: true,
     ported: true,
     sortColumn: 'Name',
@@ -169,6 +179,7 @@ const TABLES: Record<string, TableTarget> = {
     ready: 'Default',
     persisted: true,
     ported: true,
+    skipPhone: 'The table overflows by 275px at 390px. Phase 4 rebuilds it.',
     sortColumn: 'Name',
     hideColumn: 'Resolution',
     filter: async (page) => {
@@ -187,10 +198,11 @@ const TABLES: Record<string, TableTarget> = {
   MediaSourceSettings: {
     url: () => '/settings/sources',
     ready: 'E2E Shows',
+    dense: true,
     persisted: true,
     ported: true,
     sortColumn: 'Name',
-    hideColumn: 'URL',
+    hideColumn: 'Location',
     filter: async (page) => {
       await showFilters(page);
       await page.getByRole('textbox', { name: 'Filter by Name' }).fill('Shows');
@@ -208,6 +220,8 @@ const TABLES: Record<string, TableTarget> = {
     url: () => '/channels',
     ready: 'E2E Episodes',
     persisted: true,
+    ported: true,
+    dense: true,
     sortColumn: 'Name',
     hideColumn: 'Duration',
     filter: async (page) => {
@@ -229,8 +243,11 @@ const TABLES: Record<string, TableTarget> = {
 
   Tasks: {
     url: () => '/system/tasks',
-    ready: 'BackupTask',
-    persisted: false,
+    // Stays on the first page unsorted at 5 rows and sorted by name
+    // descending at 10.
+    ready: 'ScanLibrariesTask',
+    dense: true,
+    persisted: true,
     ported: true,
     sortColumn: 'Name',
     hideColumn: 'Description',
@@ -242,17 +259,22 @@ const TABLES: Record<string, TableTarget> = {
       await expectOnlyRow(page, 'BackupTask');
     },
     rowAction: async (page) => {
-      await rowWith(page, 'BackupTask').getByRole('button').first().click();
-      await expect(page.getByRole('menuitem', { name: 'Run' })).toBeVisible();
+      await rowWith(page, 'BackupTask')
+        .getByRole('button', { name: 'Run now' })
+        .click();
+      await expect(
+        page.getByText('Successfully scheduled BackupTask', { exact: false }),
+      ).toBeVisible();
     },
   },
 
   SystemLogs: {
     url: () => '/system/logs',
     ready: 'info',
-    persisted: false,
+    persisted: true,
     ported: true,
-    sortColumn: 'Timestamp',
+    // Time cells show local times, which don't sort as text.
+    sortColumn: 'Component',
     hideColumn: 'Component',
     filter: async (page) => {
       await showFilters(page);
@@ -262,6 +284,15 @@ const TABLES: Record<string, TableTarget> = {
       await expect(
         bodyRows(page).getByRole('cell', { name: 'info', exact: true }),
       ).toHaveCount(0);
+    },
+    rowAction: async (page) => {
+      await bodyRows(page)
+        .first()
+        .getByRole('button', { name: /^Show details for / })
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Copy raw line' }),
+      ).toBeVisible();
     },
   },
 
@@ -279,6 +310,23 @@ for (const [name, target] of Object.entries(TABLES)) {
     if ('skip' in target) {
       test.skip(true, target.skip);
       return;
+    }
+
+    if (target.dense) {
+      test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => {
+          type Saved = {
+            state: { theme?: Record<string, unknown> };
+            version: number;
+          };
+          const raw: unknown = JSON.parse(
+            localStorage.getItem('tunarr') ?? 'null',
+          );
+          const next = (raw ?? { state: {}, version: 0 }) as Saved;
+          next.state.theme = { ...next.state.theme, density: 'dense' };
+          localStorage.setItem('tunarr', JSON.stringify(next));
+        });
+      });
     }
 
     const open = async (page: Page) => {
@@ -373,6 +421,22 @@ for (const [name, target] of Object.entries(TABLES)) {
         expect(overflow).toBe(0);
       });
 
+      // Collection pages show cards on phones, so this waits on the text alone.
+      test('fits a phone screen', async ({ page }) => {
+        test.skip(target.skipPhone !== undefined, target.skipPhone);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto(`/web${target.url(readFixtureIds())}`);
+        await expect(
+          page.getByText(target.ready, { exact: true }).first(),
+        ).toBeVisible();
+        const overflow = await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        );
+        expect(overflow).toBe(0);
+      });
+
       test('counts and clears filters', async ({ page }) => {
         await open(page);
         const rowsBefore = await bodyRows(page).count();
@@ -410,7 +474,9 @@ const savedByMrt = {
       guideDuration: 7200000,
       themePreference: 'system',
       programmingSelectorView: 'grid',
-      density: 'comfortable',
+
+      // Dense, so the filler lists page shows its table rather than cards.
+      density: 'dense',
     },
     settings: {
       backendUri: SERVER_URL,

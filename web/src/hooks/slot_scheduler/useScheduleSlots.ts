@@ -7,7 +7,6 @@ import dayjs from 'dayjs';
 import { isError, omit } from 'lodash-es';
 import { useSnackbar } from 'notistack';
 import { useCallback, useMemo } from 'react';
-import { match } from 'ts-pattern';
 import {
   postApiChannelsByChannelIdScheduleSlots,
   postApiChannelsByChannelIdScheduleTimeSlots,
@@ -36,14 +35,17 @@ type TimeOrRandomForm =
   | ({ type: 'random' } & RandomSlotForm);
 
 function removeProgrammingFromTimeSlot(slot: TimeSlotViewModel): TimeSlot {
-  return match(slot)
-    .with({ type: 'show' }, (show) => ({
-      ...omit(show, ['show', 'missingShow']),
-    }))
-    .with({ type: 'smart-collection' }, (sc) => ({
-      ...omit(sc, 'smartCollection'),
-    }))
-    .otherwise((slot) => slot);
+  switch (slot.type) {
+    case 'show':
+      return { ...omit(slot, ['show', 'missingShow']) };
+    case 'smart-collection':
+      return { ...omit(slot, 'smartCollection') };
+    case 'custom-show':
+    case 'filler':
+    case 'flex':
+    case 'redirect':
+      return slot;
+  }
 }
 
 export const useScheduleSlots = () => {
@@ -53,7 +55,10 @@ export const useScheduleSlots = () => {
   } = useChannelEditorLazy();
 
   const scheduleTimeSlotsMut = useMutation({
-    mutationFn: ({ channelId, values }: TimeSlotMutArgs) =>
+    mutationFn: ({
+      channelId,
+      values: { rebuildEachCycle: _, ...values },
+    }: TimeSlotMutArgs) =>
       postApiChannelsByChannelIdScheduleTimeSlots({
         path: { channelId },
         body: {
@@ -69,7 +74,10 @@ export const useScheduleSlots = () => {
   });
 
   const scheduleSlotsMut = useMutation({
-    mutationFn: ({ channelId, values }: SlotMutArgs) =>
+    mutationFn: ({
+      channelId,
+      values: { rebuildEachCycle: _, ...values },
+    }: SlotMutArgs) =>
       postApiChannelsByChannelIdScheduleSlots({
         path: { channelId },
         body: {

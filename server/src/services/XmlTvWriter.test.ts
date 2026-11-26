@@ -8,6 +8,7 @@ import path from 'node:path';
 import { v4 } from 'uuid';
 import type { Artwork } from '../db/schema/Artwork.ts';
 import type { MediaSourceId } from '../db/schema/base.ts';
+import type { MaterializedGuideItem } from '../types/guide.ts';
 import type {
   ProgramGroupingOrmWithRelations,
   ProgramWithRelationsOrm,
@@ -141,6 +142,86 @@ describe('XmlTvWriter', () => {
       await expect(fs.readFile(fallback, 'utf8')).resolves.toContain('<tv');
       await expect(fs.stat(path.dirname(configured))).rejects.toThrow();
       await expect(writer.resolveOutputPath()).resolves.toBe(fallback);
+    });
+
+    test('writes the same document as serialize', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(Date.parse('2026-09-22T00:00:00Z'));
+      try {
+        const outputPath = path.join(tmpDir, 'xmltv.xml');
+        const writer = makeWriter(outputPath);
+        // Enough programmes to span several serialize batches.
+        const channels: MaterializedChannelPrograms[] = [
+          {
+            channel: createChannelOrm({ number: 1, name: 'Channel 1' }),
+            programs: Array.from({ length: 250 }, (_, i) => {
+              const program = makeProgram({ title: `Program ${i}` });
+              return {
+                programming: { type: 'program' as const, program },
+                title: program.title,
+                start: i * 1_800_000,
+                stop: (i + 1) * 1_800_000,
+                durationMs: 1_800_000,
+              };
+            }),
+          },
+        ];
+
+        await writer.write(channels);
+
+        await expect(fs.readFile(outputPath, 'utf8')).resolves.toEqual(
+          await writer.serialize(channels),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test('writes through a symlinked output path', async () => {
+      const target = path.join(tmpDir, 'target.xml');
+      const link = path.join(tmpDir, 'xmltv.xml');
+      await fs.writeFile(target, 'previous guide');
+      await fs.symlink(target, link);
+      const writer = makeWriter(link);
+
+      await writer.write([]);
+
+      expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+      await expect(fs.readFile(target, 'utf8')).resolves.toContain('<tv');
+      expect((await fs.readdir(tmpDir)).sort()).toEqual([
+        'target.xml',
+        'xmltv.xml',
+      ]);
+    });
+
+    test('replaces a scratch file left by a crashed write', async () => {
+      const outputPath = path.join(tmpDir, 'xmltv.xml');
+      await fs.writeFile(`${outputPath}.tmp`, 'partial guide from a crash');
+      const writer = makeWriter(outputPath);
+
+      await writer.write([]);
+
+      await expect(fs.readFile(outputPath, 'utf8')).resolves.toContain('<tv');
+      await expect(fs.readdir(tmpDir)).resolves.toEqual(['xmltv.xml']);
+    });
+
+    test('keeps the previous file when serializing fails', async () => {
+      const outputPath = path.join(tmpDir, 'xmltv.xml');
+      await fs.writeFile(outputPath, 'previous guide');
+      const writer = makeWriter(outputPath);
+      vi.spyOn(writer, 'serializeChunks').mockImplementation(
+        async function* () {
+          yield '<tv>';
+          throw new Error('serialize failed');
+        },
+      );
+
+      await expect(writer.write([])).rejects.toThrow('serialize failed');
+
+      await expect(fs.readFile(outputPath, 'utf8')).resolves.toEqual(
+        'previous guide',
+      );
+      await expect(fs.readdir(tmpDir)).resolves.toEqual(['xmltv.xml']);
     });
   });
 
@@ -403,6 +484,7 @@ describe('XmlTvWriter', () => {
             ...(hasArtwork ? ['icon'] : []),
             ...(type === 'movie' ? [] : ['episode-num', 'episode-num']),
             ...(type === 'track' ? ['video'] : []),
+            'previously-shown',
             'rating',
             ...(hasArtwork ? ['image'] : []),
           ]);
@@ -448,10 +530,136 @@ describe('XmlTvWriter', () => {
         );
         expect(children.map((node) => node.tagName)).toEqual([
           'title',
-          ...(hasArtwork ? ['icon', 'image'] : []),
+          ...(hasArtwork ? ['icon'] : []),
+          'previously-shown',
+          ...(hasArtwork ? ['image'] : []),
         ]);
       },
     );
+
+    test('marks flex programmes as previously shown', () => {
+      const writer = new XmlTvWriter(inMemorySettingsDB(), globalOptions());
+      const xml = writeXmltv(
+        writer.generateXmltv([
+          {
+            channel: createChannelOrm({ number: 1, name: 'Test Channel' }),
+            programs: [
+              {
+                programming: { type: 'flex' },
+                title: 'Flex',
+                start: Date.parse('2026-09-22T00:00:00Z'),
+                stop: Date.parse('2026-09-22T00:30:00Z'),
+                durationMs: 1_800_000,
+              },
+            ],
+          },
+        ]),
+      );
+      expect(xml).toMatch(
+        /<title>Flex<\/title><previously-shown\s*\/><\/programme>/,
+      );
+    });
+  });
+
+  describe('title and sub-title', () => {
+    function titles(item: Omit<MaterializedGuideItem, 'start' | 'stop'>) {
+      const writer = new XmlTvWriter(inMemorySettingsDB(), globalOptions());
+      const [programme] =
+        writer.generateXmltv([
+          {
+            channel: createChannelOrm({ number: 1, name: 'Test Channel' }),
+            programs: [
+              {
+                ...item,
+                start: Date.parse('2026-09-22T00:00:00Z'),
+                stop: Date.parse('2026-09-22T00:30:00Z'),
+              },
+            ],
+          },
+        ]).programmes ?? [];
+      return {
+        title: programme?.title?.[0]?._value,
+        subTitle: programme?.subTitle?.[0]?._value,
+      };
+    }
+
+    const durationMs = 1_800_000;
+
+    test('movie uses the guide title and has no sub-title', () => {
+      const program = makeProgram({ type: 'movie', title: 'Movie' });
+      expect(
+        titles({
+          programming: { type: 'program', program },
+          title: 'Guide Movie',
+          durationMs,
+        }),
+      ).toEqual({ title: 'Guide Movie', subTitle: undefined });
+    });
+
+    test('episode uses the show title and the episode title as sub-title', () => {
+      const program = makeProgram({
+        type: 'episode',
+        title: 'Episode',
+        showTitle: 'Show',
+      });
+      expect(
+        titles({
+          programming: { type: 'program', program },
+          title: 'Episode',
+          durationMs,
+        }),
+      ).toEqual({ title: 'Show', subTitle: 'Episode' });
+    });
+
+    test('episode titled like its show has no sub-title', () => {
+      const program = makeProgram({
+        type: 'episode',
+        title: 'Show',
+        showTitle: 'Show',
+      });
+      expect(
+        titles({
+          programming: { type: 'program', program },
+          title: 'Show',
+          durationMs,
+        }),
+      ).toEqual({ title: 'Show', subTitle: undefined });
+    });
+
+    test('track uses the album title and prefixes the sub-title with it', () => {
+      const program = makeProgram({
+        type: 'track',
+        title: 'Song',
+        album: makeGrouping({ type: 'album', title: 'Album' }),
+      } as Partial<ProgramWithRelationsOrm>);
+      expect(
+        titles({
+          programming: { type: 'program', program },
+          title: 'Song',
+          durationMs,
+        }),
+      ).toEqual({ title: 'Album', subTitle: 'Album - Song' });
+    });
+
+    test('flex uses the guide title', () => {
+      expect(
+        titles({ programming: { type: 'flex' }, title: 'Off Air', durationMs }),
+      ).toEqual({ title: 'Off Air', subTitle: undefined });
+    });
+
+    test('redirect names the target channel', () => {
+      expect(
+        titles({
+          programming: {
+            type: 'redirect',
+            channelId: v4(),
+            channelNumber: 7,
+            channelName: 'Seven',
+          },
+          durationMs,
+        }),
+      ).toEqual({ title: 'Redirect to Channel 7', subTitle: undefined });
+    });
   });
 
   describe('television', () => {
@@ -926,12 +1134,31 @@ describe('XmlTvWriter', () => {
         expect(url).toBe(`{{host}}/api/programs/${programId}/artwork/poster`);
       });
 
-      test('other_video returns undefined when no poster artwork', () => {
+      // Local scanners store only a thumbnail for these types.
+      test.each(['other_video', 'music_video'] as const)(
+        '%s uses thumbnail when it has no poster',
+        (type) => {
+          const programId = v4();
+          const program = makeProgram({
+            uuid: programId,
+            type,
+            sourceType: 'local',
+            artwork: [makeArtwork('thumbnail')],
+          });
+
+          const url = resolveArtworkUrl(program, { useShowPoster: false });
+          expect(url).toBe(
+            `{{host}}/api/programs/${programId}/artwork/thumbnail`,
+          );
+        },
+      );
+
+      test('other_video returns undefined when it has no poster or thumbnail', () => {
         const programId = v4();
         const program = makeProgram({
           uuid: programId,
           type: 'other_video',
-          artwork: [makeArtwork('thumbnail')],
+          artwork: [makeArtwork('fanart')],
         });
 
         const url = resolveArtworkUrl(program, { useShowPoster: false });

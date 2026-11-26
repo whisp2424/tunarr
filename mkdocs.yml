@@ -43,6 +43,8 @@ theme:
 
 nav:
   - Home: index.md
+  - Releases:
+      - blog/index.md
   - API Docs: api-docs.html
   - Getting Started:
       - Install: getting-started/installation.md
@@ -73,6 +75,7 @@ nav:
       - Channels:
           - configure/channels/index.md
           - Properties: configure/channels/properties.md
+          - Auto Create: configure/channels/auto-create.md
           - Flex: configure/channels/flex.md
           - EPG: configure/channels/epg.md
           - Transcoding: configure/channels/transcoding.md
@@ -82,7 +85,7 @@ nav:
           - configure/library/index.md
           - Filler: configure/library/filler.md
           - How Filler Is Chosen: configure/library/filler-selection.md
-          - Custom Shows: configure/library/custom-shows.md
+          - Playlists: configure/library/playlists.md
           - Smart Collections: configure/library/smart-collections.md
           - Trash: configure/library/trash.md
       - Scheduling:
@@ -148,6 +151,10 @@ extra:
       name: Sponsor Tunarr on GitHub
 
 plugins:
+  - blog:
+      post_url_format: "{slug}"
+      categories_allowed:
+        - Releases
   - glightbox
   - search
 

@@ -22,6 +22,8 @@ See below for an example of our schedule now that we have Flex after our two epi
 
 ![Time Slots preview with flex](../../assets/scheduling-tools-time_slots_previewflex.png)
 
+To get a new shuffle every cycle and keep ordered shows moving forward, turn on [Rebuild each cycle](concepts.md#rebuild-each-cycle).
+
 ## Slot Requirements
 
 Tunarr checks these rules when you save or preview a schedule, and rejects a schedule that breaks one with HTTP 400.
@@ -31,13 +33,13 @@ Tunarr checks these rules when you save or preview a schedule, and rejects a sch
 - Pad times and the number of days to schedule are greater than zero.
 - Every filler list, show, smart collection, and channel a slot references must exist.
 
-## Empty or Deleted Custom Shows
+## Empty or Deleted Playlists
 
-A custom show with no programs cannot fill a time slot.
+A playlist with no programs cannot fill a time slot.
 
-- The editor does not offer empty custom shows for new slots.
-- A saved slot whose custom show later becomes empty, or is deleted, keeps its selection and shows a warning. Choose another show or remove the slot. Saving is blocked until every slot is fixed.
-- The API rejects a new schedule or preview that references an empty or unknown custom show with HTTP 400, and leaves the channel's lineup unchanged.
+- The editor does not offer empty playlists for new slots.
+- A saved slot whose playlist later becomes empty, or is deleted, keeps its selection and shows a warning. Choose another playlist or remove the slot. Saving is blocked until every slot is fixed.
+- The API rejects a new schedule or preview that references an empty or unknown playlist with HTTP 400, and leaves the channel's lineup unchanged.
 - When Tunarr regenerates an already saved schedule, the empty slot's time is filled with [Flex](/configure/channels/flex).
 - Programs with no duration are skipped, because they cannot advance the schedule.
 

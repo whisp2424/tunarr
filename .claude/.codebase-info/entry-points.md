@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-10-19*
+*Last Updated: 2026-11-16*
 
 ## Process start
 
@@ -29,14 +29,25 @@ force scan). They are called from services and APIs, not from the CLI.
 - Streaming routes are in `api/streamApi.ts`: `/stream/channels/:id`, `/stream/channels/:id.ts`,
   `/stream/channels/:id/radio.ts`, `/stream/channels/:id/:sessionType/:file`,
   `/stream/channels/:id/item-stream.ts`.
+- ErsatzTV next routes are in `api/etvApi.ts`: the worker's `/etv/playout-item` callback,
+  channel diagnostics, and transcode config compatibility and hardware checks. See
+  [etv-next.md](./etv-next.md).
 - HDHomeRun emulation is in `api/hdhrApi.ts`. Debug-only routes are in `api/debug/`.
 
 ## Background work
 
 - `server/src/tasks/TaskRegistry.ts` registers tasks. `ScheduledTask.ts` handles cron timing.
 - Notable tasks: `ScanLibrariesTask`, `UpdateXmlTvTask`, `RefreshMediaSourceLibraryTask`,
-  `ReconcileProgramDurationsTask`, `SubtitleExtractorTask`, `OnDemandChannelStateTask`.
+  `ReconcileProgramDurationsTask`, `SubtitleExtractorTask`, `OnDemandChannelStateTask`,
+  `SlotCycleBoundaryTask`.
+- `services/startup/ScheduleJobsStartupTask.ts` schedules the recurring tasks at boot.
+- `services/libraryScanSchedule.ts` schedules `ScanLibrariesTask`, `SyncCollectionsTask`, and
+  `SyncCustomShowsTask` on one cron from the global `scanSchedule` setting (off, interval, days, or
+  cron). It runs at boot and again on `PUT /api/settings/media-source`, so changes apply without a restart.
 - `tasks/fixers/` holds one-shot data repair jobs.
+- `Task2.run` and `MediaSourceScanCoordinator` scans record themselves in `util/activeWork.ts`.
+  `util/eventLoopStallMonitor.ts`, started by `Server.runServer`, logs a warning for each event loop
+  stall of at least `TUNARR_EVENT_LOOP_STALL_THRESHOLD_MS` (default 1000) and names that work.
 
 ## Web
 

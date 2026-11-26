@@ -23,13 +23,43 @@ import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { TunarrSubprocessService } from './TunarrSubprocessService.ts';
 
-const MAX_WORKERS = 8;
+// Each worker is a separate V8 isolate that loads the full server bundle, so
+// every idle worker costs about 100 MB of resident memory (#2373).
+export const MAX_WORKERS = 4;
 
-const cpuCount = cpus().length;
+/**
+ * The pool is off when TUNARR_USE_WORKER_POOL is false or the pool size is
+ * set to exactly 0. Background tasks then run on the main thread.
+ */
+export function isWorkerPoolEnabled(
+  useWorkerPool: boolean,
+  poolSizeSetting: number | null,
+) {
+  return useWorkerPool && poolSizeSetting !== 0;
+}
 
-const envVarSetting = getNumericEnvVar(WORKER_POOL_SIZE_ENV_VAR);
+/**
+ * An explicit env var setting wins, even above MAX_WORKERS. Otherwise the pool
+ * uses one worker per CPU, capped at MAX_WORKERS.
+ *
+ * The pool always has at least one worker. A negative setting is ignored, and
+ * `os.cpus()` can report no CPUs in some containers. A setting of 0 turns the
+ * pool off instead (see isWorkerPoolEnabled).
+ */
+export function resolveWorkerPoolSize(
+  cpuCount: number,
+  envVarSetting: number | null,
+) {
+  if (envVarSetting !== null && envVarSetting >= 1) {
+    return envVarSetting;
+  }
+  return Math.max(1, Math.min(cpuCount, MAX_WORKERS));
+}
 
-const numWorkers = envVarSetting ?? Math.min(cpuCount, MAX_WORKERS);
+const numWorkers = resolveWorkerPoolSize(
+  cpus().length,
+  getNumericEnvVar(WORKER_POOL_SIZE_ENV_VAR),
+);
 
 // A worker that dies is respawned, but a worker that cannot start at all —
 // a broken bundle, a bad entry path — would otherwise be respawned in a tight
@@ -298,6 +328,7 @@ export class TunarrWorkerPool implements IWorkerPool {
     }
 
     this.logger.info(`Starting worker ${idx}`);
+    const createdAt = performance.now();
     const worker = this.subprocessService.createWorker();
 
     this.#pool[idx] = {
@@ -320,8 +351,13 @@ export class TunarrWorkerPool implements IWorkerPool {
 
       match(parsed.data)
         .with({ type: 'event', eventType: 'started' }, () => {
-          // We should only ever get one of these
-          this.logger.debug('Worker %d is ready', idx);
+          // We should only ever get one of these.
+          // scripts/worker-startup.ts parses this line.
+          this.logger.info(
+            'Worker %d ready in %d ms',
+            idx,
+            Math.round(performance.now() - createdAt),
+          );
           started = true;
           this.#consecutiveRestarts[idx] = 0;
           const pooled = this.#pool[idx];

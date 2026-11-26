@@ -1,4 +1,4 @@
-import type { TvEpisodeNfo, TvShowNfo } from '@/nfo/NfoSchemas.js';
+import type { TvEpisodeNfo } from '@/nfo/NfoSchemas.js';
 import { isNonEmptyString, seq } from '@tunarr/shared/util';
 import type {
   EpisodeMetadata,
@@ -22,7 +22,6 @@ import {
 import type { Dirent } from 'node:fs';
 import fs from 'node:fs/promises';
 import path, { basename, dirname, extname } from 'node:path';
-import { match } from 'ts-pattern';
 import { v4 } from 'uuid';
 import { ProgramGroupingMinter } from '../../db/converters/ProgramGroupingMinter.ts';
 import { ProgramDaoMinter } from '../../db/converters/ProgramMinter.ts';
@@ -54,6 +53,7 @@ import {
   extractSeasonNumberFromFolder,
   mapNfoActors,
   mapNfoToNamedEntity,
+  tvShowNfoToShowMetadata,
 } from '../local/localMetadataUtil.ts';
 import { LocalSubtitlesService } from '../local/LocalSubtitlesService.ts';
 import type { FolderAndContents } from '../LocalFolderCanonicalizer.ts';
@@ -724,7 +724,7 @@ export class LocalTvShowScanner extends FileSystemScanner {
       );
     }
 
-    const show = this.tvShowNfoToShow(metadata.get().tvshow);
+    const show = tvShowNfoToShowMetadata(metadata.get().tvshow);
 
     if (!show) {
       return Result.failure(
@@ -733,34 +733,6 @@ export class LocalTvShowScanner extends FileSystemScanner {
     }
 
     return Result.success(show);
-  }
-
-  private tvShowNfoToShow(tvShowNfo: TvShowNfo): ShowMetadata {
-    const releaseDate = parseReleaseDate(tvShowNfo.premiered);
-    return {
-      uuid: v4(),
-      summary: null,
-      plot: tvShowNfo.plot ?? null,
-      tagline: tvShowNfo.tagline ?? null,
-      sourceType: 'local',
-      identifiers: [],
-      title: tvShowNfo.title ?? '',
-      sortTitle: titleToSortTitle(tvShowNfo.title),
-      tags: [],
-      type: 'show',
-      genres: tvShowNfo.genre ? tvShowNfo.genre.map((name) => ({ name })) : [],
-      actors: mapNfoActors(tvShowNfo.actor),
-      studios: tvShowNfo.studio
-        ? tvShowNfo.studio.map((name) => ({ name }))
-        : [],
-      rating: tvShowNfo.mpaa ?? null,
-      releaseDate: releaseDate ? +releaseDate : null,
-      releaseDateString: releaseDate?.format() ?? null,
-      year: releaseDate?.year() ?? null,
-      childCount: undefined,
-      grandchildCount: undefined,
-      artwork: [], // Added later
-    };
   }
 
   private async loadEpisodeMetadata(
@@ -871,12 +843,26 @@ export class LocalTvShowScanner extends FileSystemScanner {
     artworkType: ArtworkType,
     force: boolean = false,
   ) {
-    const artworkFileNames = match(artworkType)
-      .with('poster', () => ['poster', 'folder'])
-      .with('fanart', () => ['fanart'])
-      .with('thumbnail', () => ['thumb'])
-      .with('banner', () => ['banner'])
-      .otherwise(() => []);
+    let artworkFileNames: string[];
+    switch (artworkType) {
+      case 'poster':
+        artworkFileNames = ['poster', 'folder'];
+        break;
+      case 'fanart':
+        artworkFileNames = ['fanart'];
+        break;
+      case 'thumbnail':
+        artworkFileNames = ['thumb'];
+        break;
+      case 'banner':
+        artworkFileNames = ['banner'];
+        break;
+      case 'logo':
+      case 'watermark':
+      case 'landscape':
+        artworkFileNames = [];
+        break;
+    }
 
     if (artworkFileNames.length === 0) {
       this.logger.warn(
@@ -925,9 +911,20 @@ export class LocalTvShowScanner extends FileSystemScanner {
     artworkType: ArtworkType,
     force: boolean = false,
   ) {
-    const artworkFileNames = match(artworkType)
-      .with('poster', () => ['poster'])
-      .otherwise(() => []);
+    let artworkFileNames: string[];
+    switch (artworkType) {
+      case 'poster':
+        artworkFileNames = ['poster'];
+        break;
+      case 'thumbnail':
+      case 'logo':
+      case 'fanart':
+      case 'watermark':
+      case 'banner':
+      case 'landscape':
+        artworkFileNames = [];
+        break;
+    }
     if (artworkFileNames.length === 0) {
       this.logger.warn(
         'Tried to scan unsupported artwork type for show: %s',
@@ -985,9 +982,20 @@ export class LocalTvShowScanner extends FileSystemScanner {
     artworkType: ArtworkType,
     force: boolean = false,
   ) {
-    const artworkFileNames = match(artworkType)
-      .with('thumbnail', () => ['thumb'])
-      .otherwise(() => []);
+    let artworkFileNames: string[];
+    switch (artworkType) {
+      case 'thumbnail':
+        artworkFileNames = ['thumb'];
+        break;
+      case 'poster':
+      case 'logo':
+      case 'fanart':
+      case 'watermark':
+      case 'banner':
+      case 'landscape':
+        artworkFileNames = [];
+        break;
+    }
     if (artworkFileNames.length === 0) {
       this.logger.warn(
         'Tried to scan unsupported artwork type for show: %s',

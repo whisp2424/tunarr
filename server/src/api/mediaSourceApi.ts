@@ -43,6 +43,7 @@ import type { MediaSourceWithRelations } from '../db/schema/derivedTypes.js';
 import { EntityMutex } from '../services/EntityMutex.ts';
 import { MediaSourceLibraryRefresher } from '../services/MediaSourceLibraryRefresher.ts';
 import { MediaSourceProgressService } from '../services/scanner/MediaSourceProgressService.ts';
+import type { MediaSourceScanCoordinator } from '../services/scanner/MediaSourceScanCoordinator.ts';
 import {
   LibraryProgramsPagingParams,
   TruthyQueryParam,
@@ -399,14 +400,16 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
           ? progressService.getScanProgress(req.params.mediaSourceId)
           : progressService.getScanProgress(req.params.libraryId);
 
-      const response = match(progress)
-        .returnType<ScanProgress>()
-        .with({ state: 'in_progress' }, (ip) => ({
-          ...ip,
-          startedAt: +ip.startedAt,
-        }))
-        .with(P._, (p) => p)
-        .exhaustive();
+      let response: ScanProgress;
+      switch (progress.state) {
+        case 'in_progress':
+          response = { ...progress, startedAt: +progress.startedAt };
+          break;
+        case 'not_scanning':
+        case 'queued':
+          response = progress;
+          break;
+      }
 
       return res.send(response);
     },
@@ -449,9 +452,7 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
     {
       schema: {
         tags: ['Media Source'],
-        params: BasicIdParamSchema.extend({
-          libraryId: z.string(),
-        }),
+        params: BasicIdParamSchema,
         querystring: z.object({
           forceScan: TruthyQueryParam.optional(),
         }),
@@ -470,6 +471,20 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
       if (!mediaSource) {
         return res.status(404).send();
       }
+
+      const libraries = mediaSource.libraries.filter((lib) => lib.enabled);
+      if (isEmpty(libraries)) {
+        return res.status(501).send();
+      }
+
+      await queueScans(
+        req.serverCtx.mediaSourceScanCoordinator,
+        mediaSource,
+        libraries,
+        !!req.query.forceScan,
+      );
+
+      return res.status(202).send();
     },
   );
 
@@ -508,35 +523,16 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
             (lib) => lib.uuid === req.params.libraryId && lib.enabled,
           );
 
-      if (!libraries || isEmpty(libraries)) {
+      if (isEmpty(libraries)) {
         return res.status(501).send();
       }
 
-      if (mediaSource.type === 'local') {
-        const result = await req.serverCtx.mediaSourceScanCoordinator.addLocal({
-          forceScan: !!req.query.forceScan,
-          mediaSourceId: mediaSource.uuid,
-        });
-        if (!result) {
-          logger.error(
-            'Unable to schedule local media source ID %s for scanning',
-            mediaSource.uuid,
-          );
-        }
-      } else {
-        for (const library of libraries) {
-          const result = await req.serverCtx.mediaSourceScanCoordinator.add({
-            libraryId: library.uuid,
-            forceScan: !!req.query.forceScan,
-          });
-          if (!result) {
-            logger.error(
-              'Unable to schedule library ID %s for scanning',
-              library.uuid,
-            );
-          }
-        }
-      }
+      await queueScans(
+        req.serverCtx.mediaSourceScanCoordinator,
+        mediaSource,
+        libraries,
+        !!req.query.forceScan,
+      );
 
       return res.status(202).send();
     },
@@ -567,45 +563,45 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
           return res.status(404).send();
         }
 
-        const healthyPromise = match(server)
-          .returnType<Promise<MediaSourceStatus>>()
-          .with({ type: 'plex' }, async (server) => {
-            return (
-              await req.serverCtx.mediaSourceApiFactory.getPlexApiClientForMediaSource(
-                server,
-              )
-            ).checkServerStatus();
-          })
-          .with({ type: 'jellyfin' }, async (server) => {
-            return (
-              await req.serverCtx.mediaSourceApiFactory.getJellyfinApiClientForMediaSource(
-                server,
-              )
-            ).ping();
-          })
-          .with({ type: 'emby' }, async (server) => {
-            return (
-              await req.serverCtx.mediaSourceApiFactory.getEmbyApiClientForMediaSource(
-                server,
-              )
-            ).ping();
-          })
-          .with({ type: 'local' }, async (source) => {
-            // TODO: Check all paths.
-            let ok = true;
-            for (const mediaPath of source.paths) {
-              ok &&= await fileExists(mediaPath.path);
-              if (!ok) {
-                break;
+        const checkHealth = async (): Promise<MediaSourceStatus> => {
+          switch (server.type) {
+            case 'plex':
+              return (
+                await req.serverCtx.mediaSourceApiFactory.getPlexApiClientForMediaSource(
+                  server,
+                )
+              ).checkServerStatus();
+            case 'jellyfin':
+              return (
+                await req.serverCtx.mediaSourceApiFactory.getJellyfinApiClientForMediaSource(
+                  server,
+                )
+              ).ping();
+            case 'emby':
+              return (
+                await req.serverCtx.mediaSourceApiFactory.getEmbyApiClientForMediaSource(
+                  server,
+                )
+              ).ping();
+            case 'local': {
+              // TODO: Check all paths.
+              let ok = true;
+              for (const mediaPath of server.paths) {
+                ok &&= await fileExists(mediaPath.path);
+                if (!ok) {
+                  break;
+                }
+              }
+              if (ok) {
+                return { healthy: true };
+              } else {
+                return { healthy: false, status: 'unreachable' };
               }
             }
-            if (ok) {
-              return { healthy: true };
-            } else {
-              return { healthy: false, status: 'unreachable' };
-            }
-          })
-          .exhaustive();
+          }
+        };
+
+        const healthyPromise = checkHealth();
 
         const status = await Promise.race([
           healthyPromise,
@@ -975,6 +971,42 @@ export const mediaSourceRouter: RouterPluginAsyncCallback = async (
       }
     },
   );
+
+  // A local source scans as one unit, so it gets a single local scan no
+  // matter how many libraries are passed in.
+  async function queueScans(
+    coordinator: MediaSourceScanCoordinator,
+    mediaSource: MediaSourceWithRelations,
+    libraries: MediaSourceWithRelations['libraries'],
+    forceScan: boolean,
+  ) {
+    if (mediaSource.type === 'local') {
+      const result = await coordinator.addLocal({
+        forceScan,
+        mediaSourceId: mediaSource.uuid,
+      });
+      if (!result) {
+        logger.error(
+          'Unable to schedule local media source ID %s for scanning',
+          mediaSource.uuid,
+        );
+      }
+      return;
+    }
+
+    for (const library of libraries) {
+      const result = await coordinator.add({
+        libraryId: library.uuid,
+        forceScan,
+      });
+      if (!result) {
+        logger.error(
+          'Unable to schedule library ID %s for scanning',
+          library.uuid,
+        );
+      }
+    }
+  }
 
   // TODO put this in its own class.
   function convertToApiMediaSource(

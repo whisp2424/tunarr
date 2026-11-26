@@ -5,13 +5,20 @@ import type {
   CondensedChannelProgram,
   ContentProgram,
 } from '@tunarr/types';
-import type { BaseSlot, OverflowConfig, RandomSlot } from '@tunarr/types/api';
+import { seq } from '@tunarr/shared/util';
+import type {
+  BaseSlot,
+  OverflowConfig,
+  RandomSlot,
+  RandomSlotSchedule,
+  TimeSlotSchedule,
+  UpdateChannelProgrammingRequest,
+} from '@tunarr/types/api';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { some } from 'lodash-es';
+import { filter, some } from 'lodash-es';
 import type { StrictExclude, StrictExtract } from 'ts-essentials';
-import { match, P } from 'ts-pattern';
 import type { DropdownOption } from './DropdownOption.ts';
 import { extractProgramGrandparent } from './programUtil.ts';
 
@@ -319,25 +326,25 @@ const UniformShuffleSortOpt = {
 export function slotOrderOptions(
   slotProgrammingType: SlotTypeWithOrdering,
 ): DropdownOption<SlotWithOrdering['order']>[] {
-  return match(slotProgrammingType)
-    .with(P.union('show', 'custom-show'), () => [
-      NextEpSortOpt,
-      OrderedShuffleSortOpt,
-      ShuffleSortOpt,
-    ])
-    .with('filler', () => [
-      ShufflePreferLongSortOpt,
-      ShufflePreferShortSortOpt,
-      UniformShuffleSortOpt,
-    ])
-    .with('smart-collection', () => [
-      AlphanumericSortOpt,
-      ChronologicalSortOpt,
-      ShuffleSortOpt,
-      NextEpSortOpt,
-      OrderedShuffleSortOpt,
-    ])
-    .exhaustive();
+  switch (slotProgrammingType) {
+    case 'show':
+    case 'custom-show':
+      return [NextEpSortOpt, OrderedShuffleSortOpt, ShuffleSortOpt];
+    case 'filler':
+      return [
+        ShufflePreferLongSortOpt,
+        ShufflePreferShortSortOpt,
+        UniformShuffleSortOpt,
+      ];
+    case 'smart-collection':
+      return [
+        AlphanumericSortOpt,
+        ChronologicalSortOpt,
+        ShuffleSortOpt,
+        NextEpSortOpt,
+        OrderedShuffleSortOpt,
+      ];
+  }
 }
 
 export type CustomShowAvailability = 'available' | 'empty' | 'missing';
@@ -381,6 +388,71 @@ export function unavailableCustomShowSlotIndexes(
   return indexes;
 }
 
+// A new slot schedule rebuilds each cycle. An existing one keeps its setting,
+// and an on-demand channel never rebuilds.
+export function initialRebuildEachCycle(
+  saved: { schedule?: unknown; rebuildEachCycle?: boolean },
+  onDemand: boolean,
+): boolean {
+  if (onDemand) {
+    return false;
+  }
+  return saved.schedule ? (saved.rebuildEachCycle ?? false) : true;
+}
+
+// The server ignores start time edits on a rebuilding channel. The field stays
+// locked until the schedule says whether the channel rebuilds, so an edit
+// can't silently revert.
+export function isStartTimeLocked(
+  isNew: boolean,
+  scheduleLoaded: boolean,
+  rebuilding: boolean,
+): boolean {
+  return !isNew && (!scheduleLoaded || rebuilding);
+}
+
+export type SlotScheduleSaveRequest = StrictExtract<
+  UpdateChannelProgrammingRequest,
+  { type: 'time' | 'random' }
+>;
+
+// The program list holds only programs some slot can air. The server builds
+// every cycle from it.
+export function slotScheduleSaveRequest(
+  schedule: TimeSlotSchedule | RandomSlotSchedule,
+  lineup: ChannelProgram[],
+  randomState: { seed?: number[]; discardCount?: number } | undefined,
+  rebuildEachCycle: boolean,
+): SlotScheduleSaveRequest {
+  const programs = seq.collect(
+    filter(lineup, (item) => lineupItemAppearsInSchedule(schedule.slots, item)),
+    (item) => {
+      switch (item.type) {
+        case 'custom':
+        case 'content':
+          return item.id;
+        case 'redirect':
+        case 'flex':
+        case 'filler':
+          return null;
+      }
+    },
+  );
+  const rest = {
+    programs,
+    seed: randomState?.seed,
+    discardCount: randomState?.discardCount,
+    rebuildEachCycle,
+  };
+
+  switch (schedule.type) {
+    case 'time':
+      return { type: 'time', schedule, ...rest };
+    case 'random':
+      return { type: 'random', schedule, ...rest };
+  }
+}
+
 export const ProgramOptionTypes: DropdownOption<ProgramOptionType>[] = [
   {
     value: 'flex',
@@ -388,7 +460,7 @@ export const ProgramOptionTypes: DropdownOption<ProgramOptionType>[] = [
   },
   {
     value: 'custom-show',
-    description: 'Custom Show',
+    description: 'Playlist',
   },
   {
     value: 'redirect',
